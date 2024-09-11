@@ -5,6 +5,7 @@ use bevy::{
     sprite::Material2d,
 };
 use bevy_inspector_egui::{
+    inspector_options,
     prelude::ReflectInspectorOptions,
     quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
     InspectorOptions,
@@ -35,6 +36,10 @@ pub fn main() {
         },
         union_type: 0,
         smoothness_val: 0.5,
+        light: ShaderLight {
+            pos: Vec3::new(0., -5., 0.),
+            colour: Vec3::new(0.8, 0.5, 0.5),
+        },
         ..default()
     };
 
@@ -103,6 +108,7 @@ fn update_shapes(mut materials: ResMut<Assets<ShaderMat>>, inspector_mat: Res<Sh
         mat.shapes = inspector_mat.shapes.into();
         mat.union_type = inspector_mat.union_type.into();
         mat.smoothness_val = inspector_mat.smoothness_val;
+        mat.light = inspector_mat.light.into();
     }
 }
 
@@ -123,6 +129,8 @@ pub struct ShaderMat {
     union_type: u32,
     #[uniform(0)]
     smoothness_val: f32,
+    #[uniform(0)]
+    light: ShaderLight,
 }
 
 #[derive(Debug, Copy, Clone, Asset, Reflect, Resource, InspectorOptions, Component, Default)]
@@ -132,6 +140,7 @@ pub struct ShaderMatInspector {
     shapes: ShapesInspector,
     union_type: UnionType,
     smoothness_val: f32,
+    light: ShaderLightInspector,
 }
 
 #[derive(AsBindGroup, Debug, Clone, TypePath, ShaderType, Default)]
@@ -165,10 +174,17 @@ pub struct ShapeInspector {
     pub size: Vec3,
 }
 
-// #[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType)]
-// pub struct ShaderLight {
-//     #[uniform[0]]
-// }
+#[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType, Default)]
+pub struct ShaderLight {
+    pos: Vec3,
+    colour: Vec3,
+}
+
+#[derive(Debug, Copy, Clone, Asset, Reflect, Resource, InspectorOptions, Component, Default)]
+pub struct ShaderLightInspector {
+    pos: Vec3,
+    colour: Vec3,
+}
 
 #[derive(Debug, Copy, Clone, Default, Reflect)]
 pub enum ShapeType {
@@ -182,10 +198,6 @@ pub enum ShapeType {
 pub enum UnionType {
     #[default]
     MinAll,
-    Min1,
-    Min2,
-    Min3,
-    Min4,
     MaxAll,
     Max1,
     Max2,
@@ -227,15 +239,11 @@ impl From<UnionType> for u32 {
     fn from(union_type: UnionType) -> Self {
         match union_type {
             UnionType::MinAll => 0,
-            UnionType::Min1 => 1,
-            UnionType::Min2 => 2,
-            UnionType::Min3 => 3,
-            UnionType::Min4 => 4,
-            UnionType::MaxAll => 5,
-            UnionType::Max1 => 6,
-            UnionType::Max2 => 7,
-            UnionType::Max3 => 8,
-            UnionType::Max4 => 9,
+            UnionType::MaxAll => 1,
+            UnionType::Max1 => 2,
+            UnionType::Max2 => 3,
+            UnionType::Max3 => 4,
+            UnionType::Max4 => 5,
         }
     }
 }
@@ -243,15 +251,11 @@ impl From<UnionType> for u32 {
 impl From<u32> for UnionType {
     fn from(union_type: u32) -> Self {
         match union_type {
-            1 => UnionType::Min1,
-            2 => UnionType::Min2,
-            3 => UnionType::Min3,
-            4 => UnionType::Min4,
-            5 => UnionType::MaxAll,
-            6 => UnionType::Max1,
-            7 => UnionType::Max2,
-            8 => UnionType::Max3,
-            9 => UnionType::Max4,
+            1 => UnionType::MaxAll,
+            2 => UnionType::Max1,
+            3 => UnionType::Max2,
+            4 => UnionType::Max3,
+            5 => UnionType::Max4,
             _ => UnionType::MinAll,
         }
     }
@@ -306,6 +310,25 @@ impl From<ShaderMat> for ShaderMatInspector {
             shapes: shader_mat.shapes.into(),
             union_type: shader_mat.union_type.into(),
             smoothness_val: shader_mat.smoothness_val,
+            light: shader_mat.light.into(),
+        }
+    }
+}
+
+impl From<ShaderLightInspector> for ShaderLight {
+    fn from(shader_light: ShaderLightInspector) -> Self {
+        Self {
+            pos: shader_light.pos,
+            colour: shader_light.colour,
+        }
+    }
+}
+
+impl From<ShaderLight> for ShaderLightInspector {
+    fn from(shader_light: ShaderLight) -> Self {
+        Self {
+            pos: shader_light.pos,
+            colour: shader_light.colour,
         }
     }
 }

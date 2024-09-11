@@ -15,6 +15,51 @@ use crate::{
     UnionType,
 };
 
+pub struct ShaderMatPlugin;
+
+impl Plugin for ShaderMatPlugin {
+    fn build(&self, app: &mut App) {
+        let shader_mat = ShaderMat {
+            shapes: Shapes {
+                shape1: Shape {
+                    shape_type: ShapeType::Sphere.into(),
+                    pos: Vec3::new(0., 1., 0.),
+                    ..default()
+                },
+                shape2: Shape {
+                    shape_type: ShapeType::Cube.into(),
+                    pos: Vec3::new(0., 0., 0.),
+                    ..default()
+                },
+                ..default()
+            },
+            union_type: 0,
+            smoothness_val: 0.5,
+            light: ShaderLight {
+                pos: Vec3::new(0., 5., 0.),
+                colour: Vec3::new(0.8, 0.5, 0.5),
+            },
+            camera: ShaderCamera {
+                pos: Vec3::new(0., 1.5, -5.),
+                rotation: Quat::IDENTITY.into(),
+                zoom: 1.,
+            },
+            ..default()
+        };
+
+        app.add_plugins(FullscreenShaderPlugin {
+            shader: shader_mat.clone(),
+        })
+        .insert_resource(ShaderMatInspector::from(shader_mat))
+        .register_type::<ShaderMatInspector>()
+        .add_plugins(ResourceInspectorPlugin::<ShaderMatInspector>::default())
+        .add_systems(
+            Update,
+            update_shadermat_from_egui.run_if(resource_changed::<ShaderMatInspector>),
+        );
+    }
+}
+
 impl Material2d for ShaderMat {
     fn fragment_shader() -> ShaderRef {
         "shaders/fullscreen_shader.wgsl".into()
@@ -59,51 +104,6 @@ impl From<ShaderMat> for ShaderMatInspector {
             light: shader_mat.light.into(),
             camera: shader_mat.camera.into(),
         }
-    }
-}
-
-pub struct ShaderMatPlugin;
-
-impl Plugin for ShaderMatPlugin {
-    fn build(&self, app: &mut App) {
-        let shader_mat = ShaderMat {
-            shapes: Shapes {
-                shape1: Shape {
-                    shape_type: ShapeType::Sphere.into(),
-                    pos: Vec3::new(0., -1., 0.),
-                    ..default()
-                },
-                shape2: Shape {
-                    shape_type: ShapeType::Cube.into(),
-                    pos: Vec3::new(0., 0., 0.),
-                    ..default()
-                },
-                ..default()
-            },
-            union_type: 0,
-            smoothness_val: 0.5,
-            light: ShaderLight {
-                pos: Vec3::new(0., -5., 0.),
-                colour: Vec3::new(0.8, 0.5, 0.5),
-            },
-            camera: ShaderCamera {
-                pos: Vec3::new(0., -1.5, -5.),
-                rotation: Quat::IDENTITY.into(),
-                zoom: 1.,
-            },
-            ..default()
-        };
-
-        app.add_plugins(FullscreenShaderPlugin {
-            shader: shader_mat.clone(),
-        })
-        .insert_resource(ShaderMatInspector::from(shader_mat))
-        .register_type::<ShaderMatInspector>()
-        .add_plugins(ResourceInspectorPlugin::<ShaderMatInspector>::default())
-        .add_systems(
-            Update,
-            update_shadermat_from_egui.run_if(resource_changed::<ShaderMatInspector>),
-        );
     }
 }
 

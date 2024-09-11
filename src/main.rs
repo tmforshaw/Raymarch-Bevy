@@ -58,8 +58,8 @@ fn update_camera(
         for (_handle, mat) in materials.iter_mut() {
             match event.state {
                 ButtonState::Pressed => match event.key_code {
-                    KeyCode::KeyW => mat.camera.pos += Vec3::new(speed, 0., 0.),
-                    KeyCode::KeyS => mat.camera.pos -= Vec3::new(speed, 0., 0.),
+                    KeyCode::KeyW => mat.camera.pos += speed * Vec3::Z,
+                    KeyCode::KeyS => mat.camera.pos -= speed * Vec3::Z,
                     _ => {}
                 },
                 ButtonState::Released => {}

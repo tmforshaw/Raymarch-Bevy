@@ -5,99 +5,6 @@
     forward_io::VertexOutput,
 }
 
-fn centre_and_scale_uv(uv: vec2<f32>, screen_dim: vec2<f32>) -> vec2<f32> {
-    let min_screen_size = min(screen_dim.x, screen_dim.y);
-    let max_screen_size = max(screen_dim.x, screen_dim.y);
-
-    var coord = (uv * screen_dim / min_screen_size * 2.0) - 1.0; // Centre the UV coords and scale to resolution size
-
-    // Readjust to account for the scaling
-    let centre_push = (max_screen_size - min_screen_size) / min_screen_size;
-    if screen_dim.x > screen_dim.y {
-        coord.x -= centre_push;
-    } else if screen_dim.x < screen_dim.y {
-        coord.y -= centre_push;
-    };
-
-    return coord;
-}
-
-struct Shape {
-    shape_type: u32,
-    pos: vec3<f32>,
-    size: vec3<f32>,
-};
-
-struct Shapes {
-    shape1: Shape,
-    shape2: Shape,
-    shape3: Shape,
-    shape4: Shape,
-};
-
-struct ShaderLight {
-    pos: vec3<f32>,
-    colour: vec3<f32>,
-}
-
-struct ShaderCamera {
-    pos: vec3<f32>,
-    rotation: vec4<f32>,
-}
-
-struct ShaderMat {
-    mouse: vec2<f32>,
-    shapes: Shapes,
-    union_type: u32,
-    smoothness_val: f32,
-    light: ShaderLight,
-    camera: ShaderCamera,
-};
-
-@group(2) @binding(0)
-var<uniform> material: ShaderMat;
-
-const max_dist: f32 = 80;
-const epsilon: f32 = 0.001;
-
-fn rotate_position(pos: vec3<f32>, rot: vec4<f32>) -> vec3<f32> {
-    return pos + 2. * cross(rot.xyz, cross(rot.xyz, pos) + rot.w * pos);
-}
-
-struct Camera {
-    pos: vec3<f32>,
-    look_at: vec3<f32>,
-    zoom: f32,
-    forward: vec3<f32>,
-    right: vec3<f32>,
-    up: vec3<f32>,
-}
-
-fn calculate_camera(pos: vec3<f32>, look_at: vec3<f32>, zoom: f32) -> Camera {
-    let forward = normalize(look_at - pos);
-    let right = cross(vec3<f32>(0., 1., 0.), forward); // Cross between world up-vector and forward
-    let up = cross(forward, right);
-
-    return Camera(pos, look_at, zoom, forward, right, up);
-}
-
-fn get_ray_dir(camera: Camera, uv: vec2<f32>) -> vec3<f32> {
-    let screen_centre = camera.pos + camera.forward * camera.zoom;
-    let intersection_point = screen_centre + uv.x * camera.right + uv.y * camera.up;
-
-    return normalize(intersection_point - camera.pos);
-}
-
-fn move_camera(camera: Camera, pos: vec3<f32>) -> Camera {
-    return calculate_camera(pos, camera.look_at + pos, camera.zoom);
-}
-
-fn rotate_camera(camera: Camera, rot: vec4<f32>) -> Camera {
-    let new_look_at = rotate_position(camera.look_at-camera.pos, rot)+camera.pos;
-    
-    return calculate_camera(camera.pos, new_look_at, camera.zoom);
-}
-
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let screen_dim = vec2<f32>(view.viewport.zw);
@@ -118,7 +25,6 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     if distance(mouse, coords) < 0.025 {
         colour = vec3<f32>((mouse.yx + 1.) / 4.,  1.0);
     } else {
-        
         let ray_march_out = ray_march(camera_pos, ray_dir);
 
         let point_on_surface: vec3<f32> = camera_pos + ray_dir * ray_march_out.dist;
@@ -129,6 +35,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     return vec4<f32>(colour, 1.0);
 }
+
+// Ray Marching -----------------------------------------------------------------------------------------------------------------------------------------------
+
+const max_dist: f32 = 80;
+const epsilon: f32 = 0.001;
 
 struct Ray {
     origin: vec3<f32>,
@@ -211,41 +122,66 @@ fn get_distance(p: vec3<f32>) -> vec4<f32> {
     return vec4<f32>(dist, colour);
 }
 
-fn shape_to_sdf(p: vec3<f32>, shape: Shape, union_type: u32) -> f32 {
-    var infinity: f32;
-    if union_type == 0 {
-        // Min union type
-        infinity = 9999999.;
-    } else {
-        // Max union type
-        infinity = -9999999.;
-    }
-    
-    switch shape.shape_type {
-        case(1u){
-            return sdf_sphere(p, shape.pos, shape.size[0]);
-        }
-        case(2u){
-            return sdf_cube(p, shape.pos, shape.size);
-        }
-        default {
-            return infinity;
-        }
-    }
+// Shader Material (Input) ------------------------------------------------------------------------------------------------------------------------------------
+
+@group(2) @binding(0)
+var<uniform> material: ShaderMat;
+
+struct ShaderMat {
+    mouse: vec2<f32>,
+    shapes: Shapes,
+    union_type: u32,
+    smoothness_val: f32,
+    light: ShaderLight,
+    camera: ShaderCamera,
+};
+
+// Camera -----------------------------------------------------------------------------------------------------------------------------------------------------
+
+struct ShaderCamera {
+    pos: vec3<f32>,
+    rotation: vec4<f32>,
 }
 
-fn get_normal(p:vec3<f32>) -> vec3<f32> {
-    let distance = get_distance(p).x;
-    let e = vec2<f32>(0.01,0.0); // Epsilon value
+struct Camera {
+    pos: vec3<f32>,
+    look_at: vec3<f32>,
+    zoom: f32,
+    forward: vec3<f32>,
+    right: vec3<f32>,
+    up: vec3<f32>,
+}
 
-    // Sample nearby points, taking their gradient (Grad function approximation)
-    let normal = distance - vec3<f32>(
-        get_distance(p-e.xyy).x,
-        get_distance(p-e.yxy).x,
-        get_distance(p-e.yyx).x,
-    );
+fn calculate_camera(pos: vec3<f32>, look_at: vec3<f32>, zoom: f32) -> Camera {
+    let forward = normalize(look_at - pos);
+    let right = cross(vec3<f32>(0., 1., 0.), forward); // Cross between world up-vector and forward
+    let up = cross(forward, right);
 
-    return normalize(normal);
+    return Camera(pos, look_at, zoom, forward, right, up);
+}
+
+fn get_ray_dir(camera: Camera, uv: vec2<f32>) -> vec3<f32> {
+    let screen_centre = camera.pos + camera.forward * camera.zoom;
+    let intersection_point = screen_centre + uv.x * camera.right + uv.y * camera.up;
+
+    return normalize(intersection_point - camera.pos);
+}
+
+fn move_camera(camera: Camera, pos: vec3<f32>) -> Camera {
+    return calculate_camera(pos, camera.look_at + pos, camera.zoom);
+}
+
+fn rotate_camera(camera: Camera, rot: vec4<f32>) -> Camera {
+    let new_look_at = rotate_position(camera.look_at - camera.pos, rot) + camera.pos;
+    
+    return calculate_camera(camera.pos, new_look_at, camera.zoom);
+}
+
+// Lighting ---------------------------------------------------------------------------------------------------------------------------------------------------
+
+struct ShaderLight {
+    pos: vec3<f32>,
+    colour: vec3<f32>,
 }
 
 fn get_light(p: vec3<f32>, view_dir: vec3<f32>) -> f32 {
@@ -273,12 +209,88 @@ fn get_light(p: vec3<f32>, view_dir: vec3<f32>) -> f32 {
     return clamp(diffuse_final, 0., 1.) + clamp(specular_final, 0., 1.) + ambient_strength;
 }
 
+// Shapes -----------------------------------------------------------------------------------------------------------------------------------------------------
+
+struct Shape {
+    shape_type: u32,
+    pos: vec3<f32>,
+    size: vec3<f32>,
+};
+
+struct Shapes {
+    shape1: Shape,
+    shape2: Shape,
+    shape3: Shape,
+    shape4: Shape,
+};
+
+fn shape_to_sdf(p: vec3<f32>, shape: Shape, union_type: u32) -> f32 {
+    var infinity: f32;
+    if union_type == 0 {
+        // Min union type
+        infinity = 9999999.;
+    } else {
+        // Max union type
+        infinity = -9999999.;
+    }
+    
+    switch shape.shape_type {
+        case(1u){
+            return sdf_sphere(p, shape.pos, shape.size[0]);
+        }
+        case(2u){
+            return sdf_cube(p, shape.pos, shape.size);
+        }
+        default {
+            return infinity;
+        }
+    }
+}
+
 fn sdf_sphere(p: vec3<f32>, centre: vec3<f32>, radius: f32) -> f32 {
     return distance(p, centre) - radius;
 }
 
 fn sdf_cube(p: vec3<f32>, centre: vec3<f32>, size: vec3<f32>) -> f32 {
     return length(max(abs(p - centre) - size, vec3<f32>(0.0, 0.0, 0.0)));
+}
+
+// Maths functions --------------------------------------------------------------------------------------------------------------------------------------------
+
+fn get_normal(p:vec3<f32>) -> vec3<f32> {
+    let distance = get_distance(p).x;
+    let e = vec2<f32>(0.01,0.0); // Epsilon value
+
+    // Sample nearby points, taking their gradient (Grad function approximation)
+    let normal = distance - vec3<f32>(
+        get_distance(p-e.xyy).x,
+        get_distance(p-e.yxy).x,
+        get_distance(p-e.yyx).x,
+    );
+
+    return normalize(normal);
+}
+
+fn rotate_position(pos: vec3<f32>, rot: vec4<f32>) -> vec3<f32> {
+    return pos + 2. * cross(rot.xyz, cross(rot.xyz, pos) + rot.w * pos);
+}
+
+fn centre_and_scale_uv(uv: vec2<f32>, screen_dim: vec2<f32>) -> vec2<f32> {
+    let min_screen_size = min(screen_dim.x, screen_dim.y);
+    let max_screen_size = max(screen_dim.x, screen_dim.y);
+
+    // Rescale uv to be screen size independent, and also flip the y-axis to be positive in the upward screen direction
+    var coord = vec2<f32>(uv.x, 1. - uv.y) * screen_dim / min_screen_size * 2. - 1.;
+
+    // Readjust to account for the scaling
+    let centre_push = (max_screen_size - min_screen_size) / min_screen_size;
+    if screen_dim.x > screen_dim.y {
+        coord.x -= centre_push;
+    } else if screen_dim.x < screen_dim.y {
+        coord.y += centre_push;
+    };
+
+    return coord;
 }
 
 fn smin(a: f32, b: f32, c: f32) -> f32 {

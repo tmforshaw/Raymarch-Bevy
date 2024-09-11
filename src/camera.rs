@@ -18,6 +18,10 @@ pub struct ShaderCameraInspector {
     pub zoom: f32,
 }
 
+// pub fn calculate_camera() -> ShaderCamera {
+//     todo!()
+// }
+
 impl From<ShaderCameraInspector> for ShaderCamera {
     fn from(shader_camera: ShaderCameraInspector) -> Self {
         Self {

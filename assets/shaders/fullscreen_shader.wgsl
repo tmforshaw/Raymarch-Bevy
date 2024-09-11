@@ -21,7 +21,6 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let ray_dir = get_ray_dir(coords);
     // let ray_dir = get_ray_dir(camera, coords);
 
-
     var colour: vec3<f32> = vec3<f32>(0., 0., 0.);
 
     if distance(mouse, coords) < 0.025 {
@@ -89,12 +88,18 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> RayMarchOutput {
 }
 
 fn get_distance(p: vec3<f32>) -> vec4<f32> {
-    let shape1_sdf = shape_to_sdf(p, material.shapes.shape1, material.union_type);
-    let shape2_sdf = shape_to_sdf(p, material.shapes.shape2, material.union_type);
+    var shape1 = material.shapes.shape1;
+    shape1.pos.y *= 2. * sin(material.time);
+
+    var shape2 = material.shapes.shape2;
+    shape2.pos.x = 2. * cos(material.time);
+
+    let shape1_sdf = shape_to_sdf(p, shape1, material.union_type);
+    let shape2_sdf = shape_to_sdf(p, shape2, material.union_type);
     let shape3_sdf = shape_to_sdf(p, material.shapes.shape3, material.union_type);
     let shape4_sdf = shape_to_sdf(p, material.shapes.shape4, material.union_type);
 
-    let colour = vec3<f32>(1.0, 0.0, 1.0);
+    var colour = vec3<f32>(1.0, 0.0, 1.0);
 
     var dist: f32;
     switch material.union_type {
@@ -136,6 +141,7 @@ struct ShaderMat {
     smoothness_val: f32,
     light: ShaderLight,
     camera: ShaderCamera,
+    time: f32,
 };
 
 // Camera -----------------------------------------------------------------------------------------------------------------------------------------------------

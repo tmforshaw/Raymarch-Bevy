@@ -40,12 +40,18 @@ struct ShaderLight {
     colour: vec3<f32>,
 }
 
+struct ShaderCamera {
+    pos: vec3<f32>,
+    rotation: vec4<f32>,
+}
+
 struct ShaderMat {
     mouse: vec2<f32>,
     shapes: Shapes,
     union_type: u32,
     smoothness_val: f32,
     light: ShaderLight,
+    camera: ShaderCamera,
 };
 
 @group(2) @binding(0)
@@ -54,20 +60,64 @@ var<uniform> material: ShaderMat;
 const max_dist: f32 = 80;
 const epsilon: f32 = 0.001;
 
+fn rotate_position(pos: vec3<f32>, rot: vec4<f32>) -> vec3<f32> {
+    return pos + 2. * cross(rot.xyz, cross(rot.xyz, pos) + rot.w * pos);
+}
+
+struct Camera {
+    pos: vec3<f32>,
+    look_at: vec3<f32>,
+    zoom: f32,
+    forward: vec3<f32>,
+    right: vec3<f32>,
+    up: vec3<f32>,
+}
+
+fn calculate_camera(pos: vec3<f32>, look_at: vec3<f32>, zoom: f32) -> Camera {
+    let forward = normalize(look_at - pos);
+    let right = cross(vec3<f32>(0., 1., 0.), forward); // Cross between world up-vector and forward
+    let up = cross(forward, right);
+
+    return Camera(pos, look_at, zoom, forward, right, up);
+}
+
+fn get_ray_dir(camera: Camera, uv: vec2<f32>) -> vec3<f32> {
+    let screen_centre = camera.pos + camera.forward * camera.zoom;
+    let intersection_point = screen_centre + uv.x * camera.right + uv.y * camera.up;
+
+    return normalize(intersection_point - camera.pos);
+}
+
+fn move_camera(camera: Camera, pos: vec3<f32>) -> Camera {
+    return calculate_camera(pos, camera.look_at + pos, camera.zoom);
+}
+
+fn rotate_camera(camera: Camera, rot: vec4<f32>) -> Camera {
+    let new_look_at = rotate_position(camera.look_at-camera.pos, rot)+camera.pos;
+    
+    return calculate_camera(camera.pos, new_look_at, camera.zoom);
+}
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let screen_dim = vec2<f32>(view.viewport.zw);
     let coords = centre_and_scale_uv(in.position.xy / screen_dim, screen_dim);
     let mouse = centre_and_scale_uv(material.mouse.xy, screen_dim);
 
-    let camera_pos = vec3<f32>(0., -1.5, -5.);
+    let camera_pos = material.camera.pos;
+    let look_at = material.camera.pos + vec3<f32>(0., 0., 1.);
+    let zoom = 1.;
+    var camera = calculate_camera(material.camera.pos, look_at, zoom);
+
+    camera = rotate_camera(camera, material.camera.rotation);
+    
+    let ray_dir = get_ray_dir(camera, coords);
 
     var colour: vec3<f32> = vec3<f32>(0., 0., 0.);
 
-    if distance(mouse, coords) < 0.05 {
+    if distance(mouse, coords) < 0.025 {
         colour = vec3<f32>((mouse.yx + 1.) / 4.,  1.0);
     } else {
-        let ray_dir = normalize(vec3<f32>(coords, 1.));
         
         let ray_march_out = ray_march(camera_pos, ray_dir);
 
@@ -203,28 +253,22 @@ fn get_light(p: vec3<f32>, view_dir: vec3<f32>) -> f32 {
     var specular_final = 1.;
 
     let specular_pow = 32.;
-    let ambient_strength = 0.01;
+    let ambient_strength = 0.1;
 
-    // let test = lights;
+    let light = normalize(material.light.pos - p);
+    let normal = get_normal(p);
 
-    // for (var i = 0u; i < lights.n_directional_lights; i++) {
-    //     let light = lights.directional_lights[i].direction_to_light;
-        // let light = normalize(vec3<f32>(0., -4., -1.) - p);
-        let light = normalize(material.light.pos - p);
-        let normal = get_normal(p);
+    var diffuse = clamp(dot(normal, light), 0., 1.);
+    let d = ray_march(p + normal, light).dist;
 
-        var diffuse = clamp(dot(normal, light), 0., 1.);
-        let d = ray_march(p + normal, light).dist;
+    if d < length(light) {
+        diffuse *= 0.1;
+    }
 
-        if d < length(light) {
-            diffuse *= 0.1;
-        }
+    diffuse_final *= diffuse;
 
-        diffuse_final *= diffuse;
-
-        let specular = pow(max(dot(view_dir, reflect(-light, normal)), 0.), specular_pow);
-        specular_final *= specular;
-    // }
+    let specular = pow(max(dot(view_dir, reflect(-light, normal)), 0.), specular_pow);
+    specular_final *= specular;
 
     return clamp(diffuse_final, 0., 1.) + clamp(specular_final, 0., 1.) + ambient_strength;
 }
@@ -238,5 +282,5 @@ fn sdf_cube(p: vec3<f32>, centre: vec3<f32>, size: vec3<f32>) -> f32 {
 }
 
 fn smin(a: f32, b: f32, c: f32) -> f32 {
-    return min(a, b) - c/6. * (pow(max(c - abs(a - b), 0.) / c, 3.));
+    return min(a, b) - c / 6. * (pow(max(c - abs(a - b), 0.) / c, 3.));
 }

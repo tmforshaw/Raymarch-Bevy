@@ -1,11 +1,11 @@
 use bevy::{
+    input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
     sprite::Material2d,
 };
 use bevy_inspector_egui::{
-    inspector_options,
     prelude::ReflectInspectorOptions,
     quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
     InspectorOptions,
@@ -40,6 +40,10 @@ pub fn main() {
             pos: Vec3::new(0., -5., 0.),
             colour: Vec3::new(0.8, 0.5, 0.5),
         },
+        camera: ShaderCamera {
+            pos: Vec3::new(0., -1.5, -5.),
+            rotation: Quat::IDENTITY.into(),
+        },
         ..default()
     };
 
@@ -57,10 +61,10 @@ pub fn main() {
         .register_type::<ShaderMatInspector>()
         .add_plugins(ResourceInspectorPlugin::<ShaderMatInspector>::default())
         // .add_systems(Startup, change_resource_inspector_size)
-        .add_systems(Update, update_mouse)
+        .add_systems(Update, (update_mouse, update_camera))
         .add_systems(
             Update,
-            update_shapes.run_if(resource_changed::<ShaderMatInspector>),
+            update_shadermat_from_egui.run_if(resource_changed::<ShaderMatInspector>),
         )
         .run();
 }
@@ -84,6 +88,26 @@ pub fn main() {
 // }));
 // }
 
+fn update_camera(
+    mut key_events: EventReader<KeyboardInput>,
+    mut materials: ResMut<Assets<ShaderMat>>,
+) {
+    let speed = 0.1;
+
+    for event in key_events.read() {
+        for (_handle, mat) in materials.iter_mut() {
+            match event.state {
+                ButtonState::Pressed => match event.key_code {
+                    KeyCode::KeyW => mat.camera.pos += Vec3::new(speed, 0., 0.),
+                    KeyCode::KeyS => mat.camera.pos -= Vec3::new(speed, 0., 0.),
+                    _ => {}
+                },
+                ButtonState::Released => {}
+            }
+        }
+    }
+}
+
 fn update_mouse(
     window: Query<&Window, Changed<Window>>,
     mut cursor_moved_events: EventReader<CursorMoved>,
@@ -103,12 +127,16 @@ fn update_mouse(
     }
 }
 
-fn update_shapes(mut materials: ResMut<Assets<ShaderMat>>, inspector_mat: Res<ShaderMatInspector>) {
+fn update_shadermat_from_egui(
+    mut materials: ResMut<Assets<ShaderMat>>,
+    inspector_mat: Res<ShaderMatInspector>,
+) {
     for (_handle, mat) in materials.iter_mut() {
         mat.shapes = inspector_mat.shapes.into();
         mat.union_type = inspector_mat.union_type.into();
         mat.smoothness_val = inspector_mat.smoothness_val;
         mat.light = inspector_mat.light.into();
+        mat.camera = inspector_mat.camera.into();
     }
 }
 
@@ -131,6 +159,8 @@ pub struct ShaderMat {
     smoothness_val: f32,
     #[uniform(0)]
     light: ShaderLight,
+    #[uniform(0)]
+    camera: ShaderCamera,
 }
 
 #[derive(Debug, Copy, Clone, Asset, Reflect, Resource, InspectorOptions, Component, Default)]
@@ -141,6 +171,7 @@ pub struct ShaderMatInspector {
     union_type: UnionType,
     smoothness_val: f32,
     light: ShaderLightInspector,
+    camera: ShaderCameraInspector,
 }
 
 #[derive(AsBindGroup, Debug, Clone, TypePath, ShaderType, Default)]
@@ -184,6 +215,18 @@ pub struct ShaderLight {
 pub struct ShaderLightInspector {
     pos: Vec3,
     colour: Vec3,
+}
+
+#[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType, Default)]
+pub struct ShaderCamera {
+    pos: Vec3,
+    rotation: Vec4,
+}
+
+#[derive(Debug, Copy, Clone, Asset, Reflect, Resource, InspectorOptions, Component, Default)]
+pub struct ShaderCameraInspector {
+    pos: Vec3,
+    rotation: Quat,
 }
 
 #[derive(Debug, Copy, Clone, Default, Reflect)]
@@ -311,6 +354,7 @@ impl From<ShaderMat> for ShaderMatInspector {
             union_type: shader_mat.union_type.into(),
             smoothness_val: shader_mat.smoothness_val,
             light: shader_mat.light.into(),
+            camera: shader_mat.camera.into(),
         }
     }
 }
@@ -329,6 +373,24 @@ impl From<ShaderLight> for ShaderLightInspector {
         Self {
             pos: shader_light.pos,
             colour: shader_light.colour,
+        }
+    }
+}
+
+impl From<ShaderCameraInspector> for ShaderCamera {
+    fn from(shader_camera: ShaderCameraInspector) -> Self {
+        Self {
+            pos: shader_camera.pos,
+            rotation: shader_camera.rotation.into(),
+        }
+    }
+}
+
+impl From<ShaderCamera> for ShaderCameraInspector {
+    fn from(shader_camera: ShaderCamera) -> Self {
+        Self {
+            pos: shader_camera.pos,
+            rotation: Quat::from_vec4(shader_camera.rotation),
         }
     }
 }

@@ -1,5 +1,5 @@
 #import bevy_pbr::{
-    mesh_view_bindings::{view, lights}, 
+    mesh_view_bindings::view, 
     view_transformations::{position_clip_to_world, direction_clip_to_world},
     mesh_functions::{get_model_matrix, mesh_position_local_to_clip, mesh_normal_local_to_world, get_world_from_local},
     forward_io::VertexOutput,
@@ -54,20 +54,31 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let coords = centre_and_scale_uv(in.position.xy / screen_dim, screen_dim);
     let mouse = centre_and_scale_uv(material.mouse.xy, screen_dim);
 
+    let camera_pos = vec3<f32>(0., -1.5, -5.);
+
     var colour: vec3<f32> = vec3<f32>(0., 0., 0.);
 
     if distance(mouse, coords) < 0.05 {
         colour = vec3<f32>((mouse.yx + 1.) / 4.,  1.0);
     } else {
-        colour = ray_march(coords).xyz;
+        let ray_dir = normalize(vec3<f32>(coords, 1.));
+        
+        let dist_and_colour = ray_march(camera_pos, ray_dir);
+        let dist = dist_and_colour.w;
+        let object_col = dist_and_colour.xyz;
+
+        let point_on_surface: vec3<f32> = camera_pos + ray_dir * dist;
+        let light_strength = get_light(point_on_surface, -ray_dir);
+
+        colour = object_col * light_strength;
     }
 
     return vec4<f32>(colour, 1.0);
 }
 
-fn ray_march(uv: vec2<f32>) -> vec4<f32> {
+fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> vec4<f32> {
+    var ray = Ray(ray_origin, ray_dir);
     var ray_dist = 0.;
-    var ray = CreateCameraRay(uv);
 
     var min_dist = max_dist;
 
@@ -75,7 +86,9 @@ fn ray_march(uv: vec2<f32>) -> vec4<f32> {
     while(ray_dist < max_dist) {
         march_steps++;
 
-        let dist = get_distance(ray.origin);
+        let dist_and_colour = get_distance(ray.origin);
+        let dist = dist_and_colour.x;
+        let object_col = dist_and_colour.yzw;
 
         if dist < min_dist {
             min_dist = dist;
@@ -83,17 +96,22 @@ fn ray_march(uv: vec2<f32>) -> vec4<f32> {
 
         // Have intersected something
         if dist <= epsilon {
-            let light_pos = vec3<f32>(-3., -5., -2.);
+            // let light_pos = vec3<f32>(-3., -5., -2.);
         
-            let point_on_surface: vec3<f32> = ray.origin + ray.dir * dist;
-            let normal: vec3<f32> = get_normal(point_on_surface - ray.dir * epsilon);
-            let light_dir: vec3<f32> = normalize(light_pos - ray.origin);
+            // let point_on_surface: vec3<f32> = ray.origin + ray.dir * dist;
+            // let normal: vec3<f32> = get_normal(point_on_surface - ray.dir * epsilon);
+            // let light_dir: vec3<f32> = normalize(light_pos - ray.origin);
 
-            let lighting = saturate(saturate(dot(normal, light_dir)));
+            // let lighting = saturate(saturate(dot(normal, light_dir)));
 
-            let col = vec3<f32>(1., 0., 1.);
+            // let col = vec3<f32>(1., 0., 1.);
 
-            return vec4<f32>(col * lighting, ray_dist);
+            // return vec4<f32>(col * lighting, ray_dist);
+
+
+            return vec4<f32>(object_col, ray_dist);
+
+            // return ray_dist;
         }
 
         ray.origin += ray.dir * dist;
@@ -107,37 +125,70 @@ fn ray_march(uv: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(0., 0., 0., ray_dist);
 }
 
-fn get_distance(p: vec3<f32>) -> f32 {
-    let shape1_sdf = shape_to_sdf(p, material.shapes.shape1);
-    let shape2_sdf = shape_to_sdf(p, material.shapes.shape2);
+fn get_distance(p: vec3<f32>) -> vec4<f32> {
+    let shape1_sdf = shape_to_sdf(p, material.shapes.shape1, material.union_type);
+    let shape2_sdf = shape_to_sdf(p, material.shapes.shape2, material.union_type);
+    let shape3_sdf = shape_to_sdf(p, material.shapes.shape3, material.union_type);
+    let shape4_sdf = shape_to_sdf(p, material.shapes.shape4, material.union_type);
 
+    let colour = vec3<f32>(1.0, 0.0, 1.0);
+
+    var dist: f32;
     switch material.union_type {
         case(0u) {
-            return smin(shape1_sdf, shape2_sdf, material.smoothness_val);
+            dist = smin(smin(smin(shape1_sdf, shape2_sdf, material.smoothness_val), shape3_sdf, material.smoothness_val), shape4_sdf, material.smoothness_val);
         }
         case(1u) {
-            return max(shape1_sdf, shape2_sdf);
+            dist = smin(smin(smin(-shape1_sdf, shape2_sdf, material.smoothness_val), shape3_sdf, material.smoothness_val), shape4_sdf, material.smoothness_val);
         }
         case(2u) {
-            return max(shape1_sdf, -shape2_sdf);
+            dist = smin(smin(smin(shape1_sdf, -shape2_sdf, material.smoothness_val), shape3_sdf, material.smoothness_val), shape4_sdf, material.smoothness_val);
         }
         case(3u) {
-            return max(-shape1_sdf, shape2_sdf);
+            dist = smin(smin(smin(shape1_sdf, shape2_sdf, material.smoothness_val), -shape3_sdf, material.smoothness_val), shape4_sdf, material.smoothness_val);
+        }
+        case(4u) {
+            dist = smin(smin(smin(shape1_sdf, shape2_sdf, material.smoothness_val), shape3_sdf, material.smoothness_val), -shape4_sdf, material.smoothness_val);
+        }
+        case(5u) {
+            dist = max(max(max(shape1_sdf, shape2_sdf), shape3_sdf), shape4_sdf);
+        }
+        case(6u) {
+            dist = max(max(max(-shape1_sdf, shape2_sdf), shape3_sdf), shape4_sdf);
+        }
+        case(7u) {
+            dist = max(max(max(shape1_sdf, -shape2_sdf), shape3_sdf), shape4_sdf);
+        }
+        case(8u) {
+            dist = max(max(max(shape1_sdf, shape2_sdf), -shape3_sdf), shape4_sdf);
+        }
+        case(9u) {
+            dist = max(max(max(shape1_sdf, shape2_sdf), shape3_sdf), -shape4_sdf);
         }
         default {
-            return shape1_sdf;
+            dist = shape1_sdf;
         }
     }
+
+    return vec4<f32>(dist, colour);
 }
 
-fn shape_to_sdf(p: vec3<f32>, shape: Shape) -> f32 {
-    let infinity = 9999999.;
+fn shape_to_sdf(p: vec3<f32>, shape: Shape, union_type: u32) -> f32 {
+
+    var infinity: f32;
+    if union_type < 5 {
+        // Min union type
+        infinity = 9999999.;
+    } else {
+        // Max union type
+        infinity = -9999999.;
+    }
     
     switch shape.shape_type {
-        case(0u){
+        case(1u){
             return sdf_sphere(p, shape.pos, shape.size[0]);
         }
-        case(1u){
+        case(2u){
             return sdf_cube(p, shape.pos, shape.size);
         }
         default {
@@ -147,16 +198,47 @@ fn shape_to_sdf(p: vec3<f32>, shape: Shape) -> f32 {
 }
 
 fn get_normal(p:vec3<f32>) -> vec3<f32> {
-    let distance = get_distance(p);
-    let e = vec2<f32>(0.01,0.0);
+    let distance = get_distance(p).x;
+    let e = vec2<f32>(0.01,0.0); // Epsilon value
 
+    // Sample nearby points, taking their gradient (Grad function approximation)
     let normal = distance - vec3<f32>(
-        get_distance(p-e.xyy),
-        get_distance(p-e.yxy),
-        get_distance(p-e.yyx),
+        get_distance(p-e.xyy).x,
+        get_distance(p-e.yxy).x,
+        get_distance(p-e.yyx).x,
     );
 
     return normalize(normal);
+}
+
+fn get_light(p: vec3<f32>, view_dir: vec3<f32>) -> f32 {
+    var diffuse_final = 1.;
+    var specular_final = 1.;
+
+    let specular_pow = 32.;
+    let ambient_strength = 0.01;
+
+    // let test = lights;
+
+    // for (var i = 0u; i < lights.n_directional_lights; i++) {
+    //     let light = lights.directional_lights[i].direction_to_light;
+        let light = normalize(vec3<f32>(0., -4., -1.) - p);
+        let normal = get_normal(p);
+
+        var diffuse = clamp(dot(normal, light), 0., 1.);
+        let d = ray_march(p + normal, light).w;
+
+        if d < length(light) {
+            diffuse *= 0.1;
+        }
+
+        diffuse_final *= diffuse;
+
+        let specular = pow(max(dot(view_dir, reflect(-light, normal)), 0.), specular_pow);
+        specular_final *= specular;
+    // }
+
+    return clamp(diffuse_final, 0., 1.) + clamp(specular_final, 0., 1.) + ambient_strength;
 }
 
 // fn get_light(p:vec3<f32>) -> f32 {
@@ -180,12 +262,12 @@ struct Ray {
     dir: vec3<f32>,
 };
 
-fn CreateCameraRay(uv: vec2<f32>) -> Ray {
-    let origin = vec3<f32>(0., -1.5, -2.);
-    let dir = normalize(vec3<f32>(uv, 1.));
+// fn CreateCameraRay(uv: vec2<f32>) -> Ray {
+//     let origin = vec3<f32>(0., -1.5, -5.);
+//     let dir = normalize(vec3<f32>(uv, 1.));
 
-    return Ray(origin, dir);
-}
+//     return Ray(origin, dir);
+// }
 
 fn sdf_sphere(p: vec3<f32>, centre: vec3<f32>, radius: f32) -> f32 {
     return distance(p, centre) - radius;

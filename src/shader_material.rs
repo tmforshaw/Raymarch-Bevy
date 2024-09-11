@@ -8,7 +8,7 @@ use bevy_inspector_egui::{
 };
 
 use crate::{
-    camera::{ShaderCamera, ShaderCameraInspector},
+    camera::{get_camera_axes, ShaderCamera, ShaderCameraInspector, CAMERA_DEFAULT_ZOOM},
     fullscreen_shader::FullscreenShaderPlugin,
     light::{ShaderLight, ShaderLightInspector},
     shape::{Shape, ShapeType, Shapes, ShapesInspector},
@@ -19,6 +19,10 @@ pub struct ShaderMatPlugin;
 
 impl Plugin for ShaderMatPlugin {
     fn build(&self, app: &mut App) {
+        let camera_pos = Vec3::new(0., 1.5, -5.);
+        let camera_rotation = Quat::IDENTITY;
+        let (forward, right, up) = get_camera_axes(camera_pos, camera_rotation);
+
         let shader_mat = ShaderMat {
             shapes: Shapes {
                 shape1: Shape {
@@ -40,9 +44,12 @@ impl Plugin for ShaderMatPlugin {
                 colour: Vec3::new(0.8, 0.5, 0.5),
             },
             camera: ShaderCamera {
-                pos: Vec3::new(0., 1.5, -5.),
-                rotation: Quat::IDENTITY.into(),
-                zoom: 1.,
+                pos: camera_pos,
+                zoom: CAMERA_DEFAULT_ZOOM,
+                rotation: camera_rotation.into(),
+                forward,
+                right,
+                up,
             },
             ..default()
         };
@@ -60,6 +67,18 @@ impl Plugin for ShaderMatPlugin {
     }
 }
 
+fn update_shadermat_from_egui(
+    mut shader_mats: ResMut<Assets<ShaderMat>>,
+    inspector_mat: Res<ShaderMatInspector>,
+) {
+    for (_handle, mat) in shader_mats.iter_mut() {
+        mat.shapes = inspector_mat.shapes.into();
+        mat.union_type = inspector_mat.union_type.into();
+        mat.smoothness_val = inspector_mat.smoothness_val;
+        mat.light = inspector_mat.light.into();
+        mat.camera = inspector_mat.camera.into();
+    }
+}
 impl Material2d for ShaderMat {
     fn fragment_shader() -> ShaderRef {
         "shaders/fullscreen_shader.wgsl".into()
@@ -107,15 +126,15 @@ impl From<ShaderMat> for ShaderMatInspector {
     }
 }
 
-fn update_shadermat_from_egui(
-    mut materials: ResMut<Assets<ShaderMat>>,
-    inspector_mat: Res<ShaderMatInspector>,
-) {
-    for (_handle, mat) in materials.iter_mut() {
-        mat.shapes = inspector_mat.shapes.into();
-        mat.union_type = inspector_mat.union_type.into();
-        mat.smoothness_val = inspector_mat.smoothness_val;
-        mat.light = inspector_mat.light.into();
-        mat.camera = inspector_mat.camera.into();
+impl From<ShaderMatInspector> for ShaderMat {
+    fn from(shader_mat: ShaderMatInspector) -> Self {
+        Self {
+            mouse: shader_mat.mouse,
+            shapes: shader_mat.shapes.into(),
+            union_type: shader_mat.union_type.into(),
+            smoothness_val: shader_mat.smoothness_val,
+            light: shader_mat.light.into(),
+            camera: shader_mat.camera.into(),
+        }
     }
 }

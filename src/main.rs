@@ -1,11 +1,9 @@
-use bevy::{
-    input::{keyboard::KeyboardInput, ButtonState},
-    prelude::*,
-};
+use bevy::prelude::*;
 use bevy_screen_diagnostics::{
     ScreenDiagnosticsPlugin, ScreenEntityDiagnosticsPlugin, ScreenFrameDiagnosticsPlugin,
 };
-use shader_material::{ShaderMat, ShaderMatPlugin};
+use camera::{update_camera, update_mouse};
+use shader_material::ShaderMatPlugin;
 
 pub mod camera;
 pub mod fullscreen_shader;
@@ -47,45 +45,6 @@ pub fn main() {
 //     ..default()
 // }));
 // }
-
-fn update_camera(
-    mut key_events: EventReader<KeyboardInput>,
-    mut materials: ResMut<Assets<ShaderMat>>,
-) {
-    let speed = 0.1;
-
-    for event in key_events.read() {
-        for (_handle, mat) in materials.iter_mut() {
-            match event.state {
-                ButtonState::Pressed => match event.key_code {
-                    KeyCode::KeyW => mat.camera.pos += speed * Vec3::Z,
-                    KeyCode::KeyS => mat.camera.pos -= speed * Vec3::Z,
-                    _ => {}
-                },
-                ButtonState::Released => {}
-            }
-        }
-    }
-}
-
-fn update_mouse(
-    window: Query<&Window, Changed<Window>>,
-    mut cursor_moved_events: EventReader<CursorMoved>,
-    mut materials: ResMut<Assets<ShaderMat>>,
-) {
-    if window.is_empty() {
-        return;
-    };
-    let resolution = &window.single().resolution;
-    for event in cursor_moved_events.read() {
-        for (_handle, mat) in materials.iter_mut() {
-            mat.mouse = Vec2::new(
-                event.position.x / resolution.width(),
-                event.position.y / resolution.height(),
-            );
-        }
-    }
-}
 
 #[derive(Debug, Copy, Clone, Default, Reflect)]
 pub enum UnionType {

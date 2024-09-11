@@ -14,11 +14,13 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let camera_pos = material.camera.pos;
     let look_at = material.camera.pos + vec3<f32>(0., 0., 1.);
     let zoom = 1.;
-    var camera = calculate_camera(material.camera.pos, look_at, zoom);
+    // var camera = calculate_camera(material.camera.pos, look_at, zoom);
 
-    camera = rotate_camera(camera, material.camera.rotation);
+    // camera = rotate_camera(camera, material.camera.rotation);
     
-    let ray_dir = get_ray_dir(camera, coords);
+    let ray_dir = get_ray_dir(coords);
+    // let ray_dir = get_ray_dir(camera, coords);
+
 
     var colour: vec3<f32> = vec3<f32>(0., 0., 0.);
 
@@ -140,7 +142,11 @@ struct ShaderMat {
 
 struct ShaderCamera {
     pos: vec3<f32>,
+    zoom: f32,
     rotation: vec4<f32>,
+    forward: vec3<f32>,
+    right: vec3<f32>,
+    up: vec3<f32>,
 }
 
 struct Camera {
@@ -160,7 +166,9 @@ fn calculate_camera(pos: vec3<f32>, look_at: vec3<f32>, zoom: f32) -> Camera {
     return Camera(pos, look_at, zoom, forward, right, up);
 }
 
-fn get_ray_dir(camera: Camera, uv: vec2<f32>) -> vec3<f32> {
+fn get_ray_dir(uv: vec2<f32>) -> vec3<f32> {
+    let camera = material.camera;
+   
     let screen_centre = camera.pos + camera.forward * camera.zoom;
     let intersection_point = screen_centre + uv.x * camera.right + uv.y * camera.up;
 

@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     render::render_resource::AsBindGroup,
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle, Mesh2dHandle},
-    window::WindowResolution,
+    window::{PresentMode, WindowResized, WindowResolution},
 };
 use core::hash::Hash;
 
@@ -33,6 +33,7 @@ where
                             },
                             resizable: true,
                             fit_canvas_to_parent: true,
+                            present_mode: PresentMode::AutoNoVsync,
                             ..default()
                         }),
                         ..default()
@@ -74,21 +75,23 @@ impl<S: Material2d> FullscreenShader<S> {
 
     fn update_window(
         window: Query<&Window, Changed<Window>>,
+        mut resize_events: EventReader<WindowResized>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut entities: Query<&mut Mesh2dHandle, With<FullscreenCover>>,
     ) {
-        if window.is_empty() {
-            return;
-        }
+        for e in resize_events.read() {
+            if window.is_empty() {
+                return;
+            }
 
-        // Create a new Quad which covers the new screen size
-        let res = &window.single().resolution;
-        let new_mesh =
-            Mesh2dHandle::from(meshes.add(Mesh::from(Rectangle::new(res.width(), res.height()))));
+            // Create a new Quad which covers the new screen size
+            let new_mesh =
+                Mesh2dHandle::from(meshes.add(Mesh::from(Rectangle::new(e.width, e.height))));
 
-        // Replace the old meshes with the rescaled one
-        for mut handle in entities.iter_mut() {
-            *handle = new_mesh.clone();
+            // Replace the old meshes with the rescaled one
+            for mut handle in entities.iter_mut() {
+                *handle = new_mesh.clone();
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ use crate::{
     },
     fullscreen_shader::FullscreenShaderPlugin,
     light::{ShaderLight, ShaderLightInspector},
+    shader_loader::ShaderLoaderPlugin,
     shape::{Shape, ShapeType, Shapes, ShapesInspector},
     UnionType,
 };
@@ -63,6 +64,7 @@ impl Plugin for ShaderMatPlugin {
             shader: shader_mat.clone(),
         })
         .add_plugins(ShaderCameraControllerPlugin)
+        .add_plugins(ShaderLoaderPlugin)
         .insert_resource(ShaderMatInspector::from(shader_mat))
         .register_type::<ShaderMatInspector>()
         .add_plugins(ResourceInspectorPlugin::<ShaderMatInspector>::default())

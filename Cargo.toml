@@ -1,5 +1,5 @@
 [package]
-name = "ray-marching"
+name = "ray_marching"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,6 +10,7 @@ bevy = { version = "0.14.*", features = ["bevy_pbr", "dynamic_linking"] }
 bevy-inspector-egui = "0.25.2"
 bevy_flycam = "0.14.1"
 bevy_screen_diagnostics = "0.6.0"
+bevy_shader_utils = "0.7.0"
 bracket-noise = "0.8.7"
 vecfx = "0.1.6"
 

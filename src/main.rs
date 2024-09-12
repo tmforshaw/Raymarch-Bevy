@@ -8,6 +8,7 @@ pub mod camera;
 pub mod fullscreen_shader;
 pub mod light;
 pub mod mouse;
+pub mod shader_loader;
 pub mod shader_material;
 pub mod shape;
 

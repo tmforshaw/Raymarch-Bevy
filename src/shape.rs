@@ -10,6 +10,7 @@ pub enum ShapeType {
     None,
     Sphere,
     Cube,
+    Plane,
 }
 
 #[derive(AsBindGroup, Debug, Clone, TypePath, ShaderType, Default)]
@@ -59,6 +60,7 @@ impl From<ShapeType> for u32 {
             ShapeType::None => 0,
             ShapeType::Sphere => 1,
             ShapeType::Cube => 2,
+            ShapeType::Plane => 3,
         }
     }
 }
@@ -68,6 +70,7 @@ impl From<u32> for ShapeType {
         match shape_type {
             1 => Self::Sphere,
             2 => Self::Cube,
+            3 => Self::Plane,
             _ => Self::None,
         }
     }

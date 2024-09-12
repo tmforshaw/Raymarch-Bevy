@@ -40,6 +40,11 @@ impl Plugin for ShaderMatPlugin {
                     pos: Vec3::new(0., -0.5, 0.),
                     ..default()
                 },
+                shape3: Shape {
+                    shape_type: ShapeType::Plane.into(),
+                    pos: Vec3::new(0., 1., 0.).normalize(),
+                    size: Vec3::new(-4.5, 0.0, 0.),
+                },
                 ..default()
             },
             union_type: 0,

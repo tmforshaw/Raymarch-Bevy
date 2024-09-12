@@ -48,12 +48,13 @@ pub fn update_mouse(
                 (controller_settings.mouse_sensitivity * event.delta.x * window_scale).to_radians();
 
             // Clamp pitch to prevent gimbal lock
-            pitch = pitch.clamp(-PI / 2.03, PI / 2.03);
+            pitch = pitch.clamp(-PI / 2.05, PI / 2.05);
             // pitch = pitch.clamp(-1.57, 1.57);
 
             // The order matters, otherwise unintended roll will occur
-            let rotation =
-                Quat::from_axis_angle(Vec3::Y, yaw) * Quat::from_axis_angle(Vec3::X, pitch);
+            let rotation = (Quat::from_axis_angle(Vec3::Y, yaw)
+                * Quat::from_axis_angle(Vec3::X, pitch))
+            .normalize();
 
             rotate_camera(&mut mat.camera, rotation);
         }

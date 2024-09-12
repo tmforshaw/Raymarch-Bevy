@@ -43,7 +43,7 @@ impl Plugin for ShaderMatPlugin {
                 ..default()
             },
             union_type: 0,
-            smoothness_val: 1.,
+            smoothness_val: 3.,
             light: ShaderLight {
                 pos: Vec3::new(0., 5., 0.),
                 colour: Vec3::new(0.8, 0.5, 0.5),

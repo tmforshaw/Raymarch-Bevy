@@ -33,5 +33,9 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     colour = ray_march_out.object_colour * material.light.colour * light_strength;
 
+    // Gamma correction
+    let gamma = 2.2;
+    colour = pow(colour, vec3<f32>(1.0/gamma));
+
     return vec4<f32>(colour, 1.0);
 }

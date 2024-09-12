@@ -1,5 +1,4 @@
 use bevy::{
-    input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderType},
 };
@@ -16,11 +15,11 @@ use crate::{
     // shader_material::{ShaderMat, ShaderMatInspector},
 };
 
-pub const CAMERA_MAX_FOV: f32 = 180.;
-pub const CAMERA_MAX_ZOOM_LEVEL: f32 = 10.;
-pub const CAMERA_DEFAULT_ZOOM: f32 = 18.;
+pub const CAMERA_MAX_FOV: f32 = 1.;
+pub const CAMERA_MAX_ZOOM_LEVEL: f32 = 1.;
+pub const CAMERA_DEFAULT_ZOOM: f32 = 1.;
 
-pub const CAMERA_MOVEMENT_SPEED: f32 = 120.;
+pub const CAMERA_MOVEMENT_SPEED: f32 = 10.;
 
 #[derive(Resource, Reflect)]
 pub struct ShaderCameraControllerSettings {
@@ -50,37 +49,36 @@ pub struct ShaderCameraInspector {
 }
 
 pub fn update_camera(
-    mut key_events: EventReader<KeyboardInput>,
+    // mut key_events: EventReader<KeyboardInput>,
     mut shader_mats: ResMut<Assets<ShaderMat>>,
     // mut inspector_mat: ResMut<ShaderMatInspector>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>,
     time: Res<Time>,
     controller_settings: Res<ShaderCameraControllerSettings>,
 ) {
-    for event in key_events.read() {
-        for (_handle, mat) in shader_mats.iter_mut() {
-            let (forward, right, up) = (mat.camera.forward, mat.camera.right, mat.camera.up);
+    // for event in key_events.read() {
+    for (_handle, mat) in shader_mats.iter_mut() {
+        let (forward, right, up) = (mat.camera.forward, mat.camera.right, mat.camera.up);
 
-            let mut velocity = Vec3::ZERO;
+        let mut velocity = Vec3::ZERO;
 
-            match event.state {
-                ButtonState::Pressed => match event.key_code {
-                    // Movement
-                    KeyCode::KeyW => velocity += forward,
-                    KeyCode::KeyS => velocity -= forward,
-                    KeyCode::KeyD => velocity += right,
-                    KeyCode::KeyA => velocity -= right,
-                    KeyCode::Space => velocity += up,
-                    KeyCode::ControlLeft => velocity -= up,
+        for key in keys.get_pressed() {
+            match key {
+                // Movement
+                KeyCode::KeyW => velocity += forward,
+                KeyCode::KeyS => velocity -= forward,
+                KeyCode::KeyD => velocity += right,
+                KeyCode::KeyA => velocity -= right,
+                KeyCode::Space => velocity += up,
+                KeyCode::ControlLeft => velocity -= up,
 
+                // Escape from cursor grab
+                KeyCode::Escape => {
                     // Escape from cursor grab
-                    KeyCode::Escape => {
-                        // Escape from cursor grab
-                        mouse_grab_event_writer.send(MouseGrabEvent { is_grab: false });
-                    }
-                    _ => {}
-                },
-                ButtonState::Released => {}
+                    mouse_grab_event_writer.send(MouseGrabEvent { is_grab: false });
+                }
+                _ => {}
             }
 
             let displacement =
@@ -88,8 +86,7 @@ pub fn update_camera(
 
             move_camera(&mut mat.camera, displacement);
 
-            // TODO change the input method so it gets rid of the delay after the first input
-
+            // TODO fix this so the inspector can see these values
             // Pointless because this alters the ShaderMat camera as well
             // move_camera_inspector(&mut inspector_mat.camera, displacement);
         }
@@ -108,12 +105,20 @@ pub fn move_camera_inspector(camera: &mut ShaderCameraInspector, move_amount: Ve
 
 pub fn rotate_camera(camera: &mut ShaderCamera, rotation: Quat) {
     let forward_dir = Vec3::Z;
-
     let forward_dir_quat =
         Quat::from_vec4(Vec4::new(forward_dir.x, forward_dir.y, forward_dir.z, 0.));
-    let rotated_dir = forward_dir_quat * rotation;
+    let rotated_dir = rotation.inverse() * forward_dir_quat * rotation;
 
     camera.look_at = Vec3::new(rotated_dir.x, rotated_dir.y, rotated_dir.z) + camera.pos;
+
+    // let rot = Vec4::from(rotation);
+
+    // let rotated = forward_dir
+    //     + 2. * rot
+    //         .xyz()
+    //         .cross(rot.xyz().cross(forward_dir) + rot.w * forward_dir);
+
+    // camera.look_at = Vec3::new(rotated.x, rotated.y, rotated.z) * camera.zoom + camera.pos;
 
     let (forward, right, up) = get_camera_axes(camera.pos, camera.look_at);
 

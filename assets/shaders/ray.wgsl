@@ -1,6 +1,6 @@
 #define_import_path ray_marching::ray
 
-#import ray_marching::shapes::{Shapes, shape_to_sdf};
+#import ray_marching::shapes::{Shapes, shape_to_sdf, SDFOutput};
 #import ray_marching::maths::smin;
 #import ray_marching::camera::ShaderCamera;
 
@@ -52,11 +52,19 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
         ray_dist += dist;
     }
 
-    if min_dist < epsilon * 40. {
-        return RayMarchOutput(vec3<f32>(1., 1., 1.), ray_dist, min_dist);
+    if min_dist < epsilon * 150. {
+    if min_dist < epsilon * 75. {
+        return RayMarchOutput(vec3<f32>(0., 1., 0.), ray_dist, min_dist);
+    } else {
+        
+        return RayMarchOutput(vec3<f32>(0.1, 1., 0.7), ray_dist, min_dist);
+    }
     }
 
-    return RayMarchOutput(vec3<f32>(0., 0., 0.), ray_dist, min_dist);
+    let background = vec3<f32>(0.1, 0.1, 1.);
+
+    // return RayMarchOutput((ray_dir + 1.) / 2., ray_dist, min_dist);
+    return RayMarchOutput(background, ray_dist, min_dist);
 }
 
 fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
@@ -71,30 +79,48 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
     let shape3_sdf = shape_to_sdf(p, get_dist_input.shapes.shape_three, get_dist_input.union_type);
     let shape4_sdf = shape_to_sdf(p, get_dist_input.shapes.shape_four, get_dist_input.union_type);
 
-    var colour = vec3<f32>(1.0, 0.0, 1.0);
+    var colour = vec3<f32>(1.0, 1.0, 1.0);
+
+    var shapes = array<SDFOutput, 4>(shape1_sdf, shape2_sdf, shape3_sdf, shape4_sdf);
 
     var dist: f32;
     switch get_dist_input.union_type {
         case(0u) {
-            dist = smin(smin(smin(shape1_sdf, shape2_sdf, get_dist_input.smoothness_val), shape3_sdf, get_dist_input.smoothness_val), shape4_sdf, get_dist_input.smoothness_val);
+            var smallest = SDFOutput(999999999., vec3<f32>(0., 0., 0.));
+            for (var i = 0; i < 4; i++) {
+                if shapes[i].dist < smallest.dist {
+                    smallest = shapes[i];
+                }
+            }
+        
+            dist = smin(smin(smin(shape1_sdf.dist, shape2_sdf.dist, get_dist_input.smoothness_val), shape3_sdf.dist, get_dist_input.smoothness_val), shape4_sdf.dist, get_dist_input.smoothness_val);
+            colour = smallest.colour;
         }
         case(1u) {
-            dist = max(max(max(shape1_sdf, shape2_sdf), shape3_sdf), shape4_sdf);
+            var biggest = SDFOutput(-999999999., vec3<f32>(0., 0., 0.));
+            for (var i = 0; i < 4; i++) {
+                if shapes[i].dist > biggest.dist {
+                    biggest = shapes[i];
+                }
+            }
+
+            dist = max(max(max(shape1_sdf.dist, shape2_sdf.dist), shape3_sdf.dist), shape4_sdf.dist);
+            colour = biggest.colour;
         }
         case(2u) {
-            dist = max(-shape1_sdf, max(max(shape2_sdf, shape3_sdf), shape4_sdf));
+            dist = max(-shape1_sdf.dist, max(max(shape2_sdf.dist, shape3_sdf.dist), shape4_sdf.dist));
         }
         case(3u) {
-            dist = max(-shape2_sdf, max(max(shape1_sdf, shape3_sdf), shape4_sdf));
+            dist = max(-shape2_sdf.dist, max(max(shape1_sdf.dist, shape3_sdf.dist), shape4_sdf.dist));
         }
         case(4u) {
-            dist = max(-shape3_sdf, max(max(shape1_sdf, shape2_sdf), shape4_sdf));
+            dist = max(-shape3_sdf.dist, max(max(shape1_sdf.dist, shape2_sdf.dist), shape4_sdf.dist));
         }
         case(5u) {
-            dist = max(-shape4_sdf, max(max(shape1_sdf, shape2_sdf), shape3_sdf));
+            dist = max(-shape4_sdf.dist, max(max(shape1_sdf.dist, shape2_sdf.dist), shape3_sdf.dist));
         }
         default {
-            dist = shape1_sdf;
+            dist = shape1_sdf.dist;
         }
     }
 

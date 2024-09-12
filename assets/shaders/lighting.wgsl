@@ -32,7 +32,7 @@ fn get_light(p: vec3<f32>, view_dir: vec3<f32>, light_pos: vec3<f32>, get_dist_i
     return clamp(diffuse_final, 0., 1.) + clamp(specular_final, 0., 1.) + ambient_strength;
 }
 
-fn get_normal(p:vec3<f32>, get_dist_input: GetDistanceInput) -> vec3<f32> {
+fn get_normal(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec3<f32> {
     let distance = get_distance(p, get_dist_input).x;
     let e = vec2<f32>(0.01,0.0); // Epsilon value
 

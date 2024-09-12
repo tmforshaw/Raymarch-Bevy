@@ -12,12 +12,11 @@ use crate::{
         MouseMotionReader, MOUSE_SENSITIVITY,
     },
     shader_material::ShaderMat,
-    // shader_material::{ShaderMat, ShaderMatInspector},
 };
 
-pub const CAMERA_MAX_FOV: f32 = 1.;
-pub const CAMERA_MAX_ZOOM_LEVEL: f32 = 1.;
-pub const CAMERA_DEFAULT_ZOOM: f32 = 1.;
+pub const CAMERA_MAX_FOV: f32 = 100.;
+pub const CAMERA_MAX_ZOOM_LEVEL: f32 = 4.;
+pub const CAMERA_DEFAULT_ZOOM: f32 = 25.;
 
 pub const CAMERA_MOVEMENT_SPEED: f32 = 10.;
 
@@ -42,8 +41,6 @@ pub struct ShaderCamera {
 #[reflect(InspectorOptions)]
 pub struct ShaderCameraInspector {
     pub pos: Vec3,
-    pub look_at: Vec3,
-    pub rotation: Quat,
     #[inspector(min=0., max=CAMERA_MAX_FOV)]
     pub zoom: f32,
 }
@@ -57,7 +54,6 @@ pub fn update_camera(
     time: Res<Time>,
     controller_settings: Res<ShaderCameraControllerSettings>,
 ) {
-    // for event in key_events.read() {
     for (_handle, mat) in shader_mats.iter_mut() {
         let (forward, right, up) = (mat.camera.forward, mat.camera.right, mat.camera.up);
 
@@ -98,10 +94,9 @@ pub fn move_camera(camera: &mut ShaderCamera, move_amount: Vec3) {
     camera.look_at += move_amount;
 }
 
-pub fn move_camera_inspector(camera: &mut ShaderCameraInspector, move_amount: Vec3) {
-    camera.pos += move_amount;
-    camera.look_at += move_amount;
-}
+// pub fn move_camera_inspector(camera: &mut ShaderCameraInspector, move_amount: Vec3) {
+//     camera.pos += move_amount;
+// }
 
 pub fn rotate_camera(camera: &mut ShaderCamera, rotation: Quat) {
     let forward_dir = Vec3::Z;
@@ -165,19 +160,10 @@ fn camera_setup(mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>) {
     mouse_grab_event_writer.send(MouseGrabEvent { is_grab: true });
 }
 
-impl From<ShaderCameraInspector> for ShaderCamera {
-    fn from(shader_camera: ShaderCameraInspector) -> Self {
-        let (forward, right, up) = get_camera_axes(shader_camera.pos, shader_camera.look_at);
-
-        Self {
-            pos: shader_camera.pos,
-            zoom: shader_camera.zoom * (CAMERA_MAX_ZOOM_LEVEL / CAMERA_MAX_FOV),
-            look_at: shader_camera.look_at,
-            rotation: shader_camera.rotation.into(),
-            forward,
-            right,
-            up,
-        }
+impl ShaderCamera {
+    pub fn modify(&mut self, inspector_cam: ShaderCameraInspector) {
+        self.pos = inspector_cam.pos;
+        self.zoom = inspector_cam.zoom * CAMERA_MAX_ZOOM_LEVEL / CAMERA_MAX_FOV;
     }
 }
 
@@ -185,9 +171,7 @@ impl From<ShaderCamera> for ShaderCameraInspector {
     fn from(shader_camera: ShaderCamera) -> Self {
         Self {
             pos: shader_camera.pos,
-            look_at: shader_camera.look_at,
-            rotation: Quat::from_vec4(shader_camera.rotation),
-            zoom: shader_camera.zoom,
+            zoom: shader_camera.zoom, //  * CAMERA_MAX_FOV / CAMERA_MAX_ZOOM_LEVEL
         }
     }
 }

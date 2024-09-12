@@ -13,23 +13,7 @@ pub enum ShapeType {
     Plane,
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypePath, ShaderType, Default)]
-pub struct Shapes {
-    pub shape1: Shape,
-    pub shape2: Shape,
-    pub shape3: Shape,
-    pub shape4: Shape,
-}
-
-#[derive(Debug, Copy, Clone, Asset, Reflect, Resource, InspectorOptions, Component, Default)]
-pub struct ShapesInspector {
-    pub shape1: ShapeInspector,
-    pub shape2: ShapeInspector,
-    pub shape3: ShapeInspector,
-    pub shape4: ShapeInspector,
-}
-
-#[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType)]
+#[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType, Copy)]
 #[repr(C)]
 pub struct Shape {
     pub shape_type: u32,
@@ -86,34 +70,12 @@ impl From<ShapeInspector> for Shape {
     }
 }
 
-impl From<ShapesInspector> for Shapes {
-    fn from(inspector: ShapesInspector) -> Self {
-        Self {
-            shape1: inspector.shape1.into(),
-            shape2: inspector.shape2.into(),
-            shape3: inspector.shape3.into(),
-            shape4: inspector.shape4.into(),
-        }
-    }
-}
-
 impl From<Shape> for ShapeInspector {
     fn from(shape: Shape) -> Self {
         Self {
             shape_type: shape.shape_type.into(),
             pos: shape.pos,
             size: shape.size,
-        }
-    }
-}
-
-impl From<Shapes> for ShapesInspector {
-    fn from(shapes: Shapes) -> Self {
-        Self {
-            shape1: shapes.shape1.into(),
-            shape2: shapes.shape2.into(),
-            shape3: shapes.shape3.into(),
-            shape4: shapes.shape4.into(),
         }
     }
 }

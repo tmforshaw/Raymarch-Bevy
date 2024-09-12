@@ -6,13 +6,6 @@ struct Shape {
     size: vec3<f32>,
 };
 
-struct Shapes {
-    shape_one: Shape,
-    shape_two: Shape,
-    shape_three: Shape,
-    shape_four: Shape,
-};
-
 struct SDFOutput {
     dist: f32,
     colour: vec3<f32>,

@@ -8,7 +8,10 @@ use bevy_inspector_egui::{
 };
 
 use crate::{
-    camera::{get_camera_axes, ShaderCamera, ShaderCameraInspector, CAMERA_DEFAULT_ZOOM},
+    camera::{
+        get_camera_axes, ShaderCamera, ShaderCameraControllerPlugin, ShaderCameraInspector,
+        CAMERA_DEFAULT_ZOOM,
+    },
     fullscreen_shader::FullscreenShaderPlugin,
     light::{ShaderLight, ShaderLightInspector},
     shape::{Shape, ShapeType, Shapes, ShapesInspector},
@@ -19,9 +22,10 @@ pub struct ShaderMatPlugin;
 
 impl Plugin for ShaderMatPlugin {
     fn build(&self, app: &mut App) {
-        let camera_pos = Vec3::new(0., 1.5, -5.);
+        let camera_pos = Vec3::new(0., 0., -5.);
         let camera_rotation = Quat::IDENTITY;
-        let (forward, right, up) = get_camera_axes(camera_pos, camera_rotation);
+        let look_at = Vec3::ZERO;
+        let (forward, right, up) = get_camera_axes(camera_pos, look_at);
 
         let shader_mat = ShaderMat {
             shapes: Shapes {
@@ -46,6 +50,7 @@ impl Plugin for ShaderMatPlugin {
             camera: ShaderCamera {
                 pos: camera_pos,
                 zoom: CAMERA_DEFAULT_ZOOM,
+                look_at,
                 rotation: camera_rotation.into(),
                 forward,
                 right,
@@ -57,6 +62,7 @@ impl Plugin for ShaderMatPlugin {
         app.add_plugins(FullscreenShaderPlugin {
             shader: shader_mat.clone(),
         })
+        .add_plugins(ShaderCameraControllerPlugin)
         .insert_resource(ShaderMatInspector::from(shader_mat))
         .register_type::<ShaderMatInspector>()
         .add_plugins(ResourceInspectorPlugin::<ShaderMatInspector>::default())
@@ -83,15 +89,16 @@ fn update_shadermat_from_egui(
     }
 }
 
-fn update_time(
-    time: Res<Time>,
-    mut shader_mats: ResMut<Assets<ShaderMat>>,
-    mut inspector_mat: ResMut<ShaderMatInspector>,
-) {
+fn update_time(time: Res<Time>, mut shader_mats: ResMut<Assets<ShaderMat>>) {
     for (_handle, mat) in shader_mats.iter_mut() {
         mat.time = time.elapsed_seconds();
-        inspector_mat.time = time.elapsed_seconds();
     }
+}
+
+#[derive(Debug, AsBindGroup, Clone, Asset, TypePath, Default)]
+pub struct ShaderTime {
+    #[uniform(1)]
+    pub time: f32,
 }
 
 impl Material2d for ShaderMat {
@@ -101,10 +108,7 @@ impl Material2d for ShaderMat {
 }
 
 #[derive(AsBindGroup, Debug, Clone, Asset, TypePath, Default)]
-#[repr(C)]
 pub struct ShaderMat {
-    #[uniform(0)]
-    pub mouse: Vec2,
     #[uniform(0)]
     pub shapes: Shapes,
     #[uniform(0)]
@@ -122,39 +126,21 @@ pub struct ShaderMat {
 #[derive(Debug, Copy, Clone, Asset, Reflect, Resource, InspectorOptions, Component, Default)]
 #[reflect(Resource, InspectorOptions)]
 pub struct ShaderMatInspector {
-    pub mouse: Vec2,
     pub shapes: ShapesInspector,
     pub union_type: UnionType,
     pub smoothness_val: f32,
     pub light: ShaderLightInspector,
     pub camera: ShaderCameraInspector,
-    pub time: f32,
 }
 
 impl From<ShaderMat> for ShaderMatInspector {
     fn from(shader_mat: ShaderMat) -> Self {
         Self {
-            mouse: shader_mat.mouse,
             shapes: shader_mat.shapes.into(),
             union_type: shader_mat.union_type.into(),
             smoothness_val: shader_mat.smoothness_val,
             light: shader_mat.light.into(),
             camera: shader_mat.camera.into(),
-            time: shader_mat.time,
-        }
-    }
-}
-
-impl From<ShaderMatInspector> for ShaderMat {
-    fn from(shader_mat: ShaderMatInspector) -> Self {
-        Self {
-            mouse: shader_mat.mouse,
-            shapes: shader_mat.shapes.into(),
-            union_type: shader_mat.union_type.into(),
-            smoothness_val: shader_mat.smoothness_val,
-            light: shader_mat.light.into(),
-            camera: shader_mat.camera.into(),
-            time: shader_mat.time,
         }
     }
 }

@@ -1,22 +1,38 @@
-use std::f32::consts::PI;
-
 use bevy::{
     input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderType},
 };
-use bevy_inspector_egui::{prelude::ReflectInspectorOptions, InspectorOptions};
+use bevy_inspector_egui::{
+    prelude::ReflectInspectorOptions, quick::ResourceInspectorPlugin, InspectorOptions,
+};
 
-use crate::shader_material::{ShaderMat, ShaderMatInspector};
+use crate::{
+    mouse::{
+        handle_mouse_button_events, handle_mouse_grab_events, update_mouse, MouseGrabEvent,
+        MouseMotionReader, MOUSE_SENSITIVITY,
+    },
+    shader_material::ShaderMat,
+    // shader_material::{ShaderMat, ShaderMatInspector},
+};
 
 pub const CAMERA_MAX_FOV: f32 = 180.;
 pub const CAMERA_MAX_ZOOM_LEVEL: f32 = 10.;
 pub const CAMERA_DEFAULT_ZOOM: f32 = 18.;
 
+pub const CAMERA_MOVEMENT_SPEED: f32 = 120.;
+
+#[derive(Resource, Reflect)]
+pub struct ShaderCameraControllerSettings {
+    pub speed: f32,
+    pub mouse_sensitivity: f32,
+}
+
 #[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType, Default)]
 pub struct ShaderCamera {
     pub pos: Vec3,
     pub zoom: f32,
+    pub look_at: Vec3,
     pub rotation: Vec4,
     pub forward: Vec3,
     pub right: Vec3,
@@ -27,6 +43,7 @@ pub struct ShaderCamera {
 #[reflect(InspectorOptions)]
 pub struct ShaderCameraInspector {
     pub pos: Vec3,
+    pub look_at: Vec3,
     pub rotation: Quat,
     #[inspector(min=0., max=CAMERA_MAX_FOV)]
     pub zoom: f32,
@@ -35,84 +52,79 @@ pub struct ShaderCameraInspector {
 pub fn update_camera(
     mut key_events: EventReader<KeyboardInput>,
     mut shader_mats: ResMut<Assets<ShaderMat>>,
-    mut inspector_mat: ResMut<ShaderMatInspector>,
+    // mut inspector_mat: ResMut<ShaderMatInspector>,
+    mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>,
+    time: Res<Time>,
+    controller_settings: Res<ShaderCameraControllerSettings>,
 ) {
-    let speed = 0.25;
-
     for event in key_events.read() {
         for (_handle, mat) in shader_mats.iter_mut() {
+            let (forward, right, up) = (mat.camera.forward, mat.camera.right, mat.camera.up);
+
+            let mut velocity = Vec3::ZERO;
+
             match event.state {
                 ButtonState::Pressed => match event.key_code {
-                    KeyCode::KeyW => mat.camera.pos += speed * mat.camera.forward,
-                    KeyCode::KeyS => mat.camera.pos -= speed * mat.camera.forward,
-                    KeyCode::KeyD => mat.camera.pos += speed * mat.camera.right,
-                    KeyCode::KeyA => mat.camera.pos -= speed * mat.camera.right,
-                    KeyCode::Space => mat.camera.pos += speed * mat.camera.up,
-                    KeyCode::ControlLeft => mat.camera.pos -= speed * mat.camera.up,
-                    // KeyCode::KeyQ => {
-                    //     let new_rotation =
-                    //         Quat::from_vec4(mat.camera.rotation) * Quat::from_rotation_y(PI / 4.);
+                    // Movement
+                    KeyCode::KeyW => velocity += forward,
+                    KeyCode::KeyS => velocity -= forward,
+                    KeyCode::KeyD => velocity += right,
+                    KeyCode::KeyA => velocity -= right,
+                    KeyCode::Space => velocity += up,
+                    KeyCode::ControlLeft => velocity -= up,
 
-                    //     let (forward, right, up) = get_camera_axes(mat.camera.pos, new_rotation);
-
-                    //     mat.camera.rotation = new_rotation.into();
-                    //     mat.camera.forward = forward;
-                    //     mat.camera.right = right;
-                    //     mat.camera.up = up;
-                    // }
-                    // KeyCode::KeyE => {
-                    //     let new_rotation = Quat::from_vec4(mat.camera.rotation)
-                    //         * Quat::from_rotation_x(PI * speed);
-
-                    //     let (forward, right, up) = get_camera_axes(mat.camera.pos, new_rotation);
-
-                    //     mat.camera.rotation = new_rotation.into();
-                    //     mat.camera.forward = forward;
-                    //     mat.camera.right = right;
-                    //     mat.camera.up = up;
-                    // }
+                    // Escape from cursor grab
+                    KeyCode::Escape => {
+                        // Escape from cursor grab
+                        mouse_grab_event_writer.send(MouseGrabEvent { is_grab: false });
+                    }
                     _ => {}
                 },
                 ButtonState::Released => {}
             }
 
-            // Update the inspector camera position
-            inspector_mat.camera.pos = mat.clone().camera.pos;
+            let displacement =
+                velocity.normalize_or_zero() * time.delta_seconds() * controller_settings.speed;
+
+            move_camera(&mut mat.camera, displacement);
+
+            // TODO change the input method so it gets rid of the delay after the first input
+
+            // Pointless because this alters the ShaderMat camera as well
+            // move_camera_inspector(&mut inspector_mat.camera, displacement);
         }
     }
 }
 
-pub fn update_mouse(
-    window: Query<&Window, Changed<Window>>,
-    mut cursor_moved_events: EventReader<CursorMoved>,
-    mut shader_mats: ResMut<Assets<ShaderMat>>,
-) {
-    if window.is_empty() {
-        return;
-    };
-    let resolution = &window.single().resolution;
-    for event in cursor_moved_events.read() {
-        for (_handle, mat) in shader_mats.iter_mut() {
-            mat.mouse = Vec2::new(
-                event.position.x / resolution.width(),
-                event.position.y / resolution.height(),
-            );
-        }
-    }
+pub fn move_camera(camera: &mut ShaderCamera, move_amount: Vec3) {
+    camera.pos += move_amount;
+    camera.look_at += move_amount;
 }
 
-// Returns forward, right, up directions for the current camera position and its look_at pos
-// pub fn get_camera_axes(pos: Vec3, rotation: Quat, forward: Option<Vec3>) -> (Vec3, Vec3, Vec3) {
-//     let forward_dir = forward.unwrap_or(Vec3::Z);
-pub fn get_camera_axes(pos: Vec3, rotation: Quat) -> (Vec3, Vec3, Vec3) {
+pub fn move_camera_inspector(camera: &mut ShaderCameraInspector, move_amount: Vec3) {
+    camera.pos += move_amount;
+    camera.look_at += move_amount;
+}
+
+pub fn rotate_camera(camera: &mut ShaderCamera, rotation: Quat) {
     let forward_dir = Vec3::Z;
+
     let forward_dir_quat =
         Quat::from_vec4(Vec4::new(forward_dir.x, forward_dir.y, forward_dir.z, 0.));
-
     let rotated_dir = forward_dir_quat * rotation;
 
-    let look_at = Vec3::new(rotated_dir.x, rotated_dir.y, rotated_dir.z) + pos;
+    camera.look_at = Vec3::new(rotated_dir.x, rotated_dir.y, rotated_dir.z) + camera.pos;
 
+    let (forward, right, up) = get_camera_axes(camera.pos, camera.look_at);
+
+    camera.forward = forward;
+    camera.right = right;
+    camera.up = up;
+
+    camera.rotation = rotation.into();
+}
+
+pub fn get_camera_axes(pos: Vec3, look_at: Vec3) -> (Vec3, Vec3, Vec3) {
     let forward = (look_at - pos).normalize();
     let right = Vec3::Y.cross(forward); // Cross between world up-vector and forward
     let up = forward.cross(right);
@@ -120,17 +132,42 @@ pub fn get_camera_axes(pos: Vec3, rotation: Quat) -> (Vec3, Vec3, Vec3) {
     (forward, right, up)
 }
 
+pub struct ShaderCameraControllerPlugin;
+
+impl Plugin for ShaderCameraControllerPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(ShaderCameraControllerSettings {
+            speed: CAMERA_MOVEMENT_SPEED,
+            mouse_sensitivity: MOUSE_SENSITIVITY,
+        })
+        .init_resource::<MouseMotionReader>()
+        .add_plugins(ResourceInspectorPlugin::<ShaderCameraControllerSettings>::default())
+        .add_systems(Startup, camera_setup)
+        .add_systems(
+            Update,
+            (
+                update_mouse,
+                update_camera,
+                handle_mouse_grab_events,
+                handle_mouse_button_events,
+            ),
+        )
+        .add_event::<MouseGrabEvent>();
+    }
+}
+
+fn camera_setup(mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>) {
+    mouse_grab_event_writer.send(MouseGrabEvent { is_grab: true });
+}
+
 impl From<ShaderCameraInspector> for ShaderCamera {
     fn from(shader_camera: ShaderCameraInspector) -> Self {
-        let (forward, right, up) = get_camera_axes(
-            shader_camera.pos,
-            shader_camera.rotation,
-            // (shader_camera.forward),
-        );
+        let (forward, right, up) = get_camera_axes(shader_camera.pos, shader_camera.look_at);
 
         Self {
             pos: shader_camera.pos,
             zoom: shader_camera.zoom * (CAMERA_MAX_ZOOM_LEVEL / CAMERA_MAX_FOV),
+            look_at: shader_camera.look_at,
             rotation: shader_camera.rotation.into(),
             forward,
             right,
@@ -143,6 +180,7 @@ impl From<ShaderCamera> for ShaderCameraInspector {
     fn from(shader_camera: ShaderCamera) -> Self {
         Self {
             pos: shader_camera.pos,
+            look_at: shader_camera.look_at,
             rotation: Quat::from_vec4(shader_camera.rotation),
             zoom: shader_camera.zoom,
         }

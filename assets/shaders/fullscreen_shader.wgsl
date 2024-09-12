@@ -9,30 +9,20 @@
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let screen_dim = vec2<f32>(view.viewport.zw);
     let coords = centre_and_scale_uv(in.position.xy / screen_dim, screen_dim);
-    let mouse = centre_and_scale_uv(material.mouse.xy, screen_dim);
 
     let camera_pos = material.camera.pos;
-    let look_at = material.camera.pos + vec3<f32>(0., 0., 1.);
     let zoom = 1.;
-    // var camera = calculate_camera(material.camera.pos, look_at, zoom);
 
-    // camera = rotate_camera(camera, material.camera.rotation);
-    
     let ray_dir = get_ray_dir(coords);
-    // let ray_dir = get_ray_dir(camera, coords);
 
     var colour: vec3<f32> = vec3<f32>(0., 0., 0.);
 
-    if distance(mouse, coords) < 0.025 {
-        colour = vec3<f32>((mouse.yx + 1.) / 4.,  1.0);
-    } else {
-        let ray_march_out = ray_march(camera_pos, ray_dir);
+    let ray_march_out = ray_march(camera_pos, ray_dir);
 
-        let point_on_surface: vec3<f32> = camera_pos + ray_dir * ray_march_out.dist;
-        let light_strength = get_light(point_on_surface, -ray_dir);
+    let point_on_surface: vec3<f32> = camera_pos + ray_dir * ray_march_out.dist;
+    let light_strength = get_light(point_on_surface, -ray_dir);
 
-        colour = ray_march_out.object_colour * material.light.colour * light_strength;
-    }
+    colour = ray_march_out.object_colour * material.light.colour * light_strength;
 
     return vec4<f32>(colour, 1.0);
 }
@@ -135,7 +125,6 @@ fn get_distance(p: vec3<f32>) -> vec4<f32> {
 var<uniform> material: ShaderMat;
 
 struct ShaderMat {
-    mouse: vec2<f32>,
     shapes: Shapes,
     union_type: u32,
     smoothness_val: f32,
@@ -149,6 +138,7 @@ struct ShaderMat {
 struct ShaderCamera {
     pos: vec3<f32>,
     zoom: f32,
+    look_at: vec3<f32>,
     rotation: vec4<f32>,
     forward: vec3<f32>,
     right: vec3<f32>,

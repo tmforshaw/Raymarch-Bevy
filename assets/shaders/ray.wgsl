@@ -9,8 +9,8 @@ var<storage> shapes: array<Shape>;
 @group(2) @binding(2)
 var<uniform> shapes_len: u32;
 
-const max_dist: f32 = 80;
-const epsilon: f32 = 0.001;
+const max_dist: f32 = 40.;
+const epsilon: f32 = 0.01;
 
 struct Ray {
     origin: vec3<f32>,
@@ -56,18 +56,13 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
         ray_dist += dist;
     }
 
-    if min_dist < epsilon * 150. {
-        if min_dist < epsilon * 75. {
-            return RayMarchOutput(vec3<f32>(0., 1., 0.), ray_dist, min_dist);
-        } else {
-            return RayMarchOutput(vec3<f32>(0.1, 1., 0.7), ray_dist, min_dist);
-        }
+    if min_dist < 0.1 {
+        return RayMarchOutput(vec3<f32>(0.1, 1., 0.7), ray_dist, min_dist);
     }
 
-    // let background = vec3<f32>(0.0, 0.0, 0.);
-    let background = (ray_dir + 1.) / 2.;
+    let background = vec3<f32>(0.0, 0.0, 0.);
+    // let background = (ray_dir + 1.) / 2.;
 
-    // return RayMarchOutput((ray_dir + 1.) / 2., ray_dist, min_dist);
     return RayMarchOutput(background, ray_dist, min_dist);
 }
 
@@ -76,9 +71,9 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
     var closest_or_furthest: f32;
 
     if get_dist_input.union_type == 0 {
-        closest_or_furthest = 999999999999.;
+        closest_or_furthest = 9999.;
     } else {
-        closest_or_furthest = -999999999999.;
+        closest_or_furthest = -9999.;
     }
     
     var colour = vec3<f32>(0.);
@@ -119,7 +114,7 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
                 }
                 default {
                     dist = smin(dist, sdf_out.dist, get_dist_input.smoothness_val);
-                }
+                 }
             }
         }
     }
@@ -128,8 +123,6 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
 }
 
 fn get_ray_dir(camera: ShaderCamera, uv: vec2<f32>) -> vec3<f32> {
-    // let camera = material.camera;
-   
     let screen_centre = camera.pos + camera.forward * camera.zoom;
     let intersection_point = screen_centre + uv.x * camera.right + uv.y * camera.up;
 

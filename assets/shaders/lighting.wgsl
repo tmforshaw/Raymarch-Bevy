@@ -11,7 +11,7 @@ fn get_light(p: vec3<f32>, view_dir: vec3<f32>, light_pos: vec3<f32>, get_dist_i
     var diffuse_final = 1.;
     var specular_final = 1.;
 
-    let specular_pow = 32.;
+    let specular_pow = 16.;
     let ambient_strength = 0.1;
 
     let light = normalize(light_pos - p);

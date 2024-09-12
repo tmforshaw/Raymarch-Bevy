@@ -15,10 +15,10 @@ fn shape_to_sdf(p: vec3<f32>, shape: Shape, union_type: u32) -> SDFOutput {
     var infinity: f32;
     if union_type == 0 {
         // Min union type
-        infinity = 9999999.;
+        infinity = 9999.;
     } else {
         // Max union type
-        infinity = -9999999.;
+        infinity = -9999.;
     }
     
     switch shape.shape_type {

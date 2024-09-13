@@ -23,13 +23,13 @@ fn shape_to_sdf(p: vec3<f32>, shape: Shape, union_type: u32) -> SDFOutput {
     
     switch shape.shape_type {
         case(1u){
-            return sdf_sphere(p, shape.pos, shape.size[0]);
+            return sdf_sphere(p, shape.pos, shape.size.x);
         }
         case(2u){
             return sdf_cube(p, shape.pos, shape.size);
         }
         case(3u) {
-            return sdf_plane(p, shape.pos, shape.size[0]);
+            return sdf_plane(p, shape.pos, shape.size.xy);
         }
         default {
             return SDFOutput(infinity, vec3<f32>(0., 0., 0.));
@@ -49,8 +49,8 @@ fn sdf_cube(p: vec3<f32>, centre: vec3<f32>, size: vec3<f32>) -> SDFOutput {
     return SDFOutput(length(max(abs(p - centre) - size, vec3<f32>(0.0, 0.0, 0.0))), colour);
 }
 
-fn sdf_plane(p: vec3<f32>, normal: vec3<f32>, height: f32) -> SDFOutput {
+fn sdf_plane(p: vec3<f32>, normal: vec3<f32>, size: vec2<f32>) -> SDFOutput {
     let colour = vec3<f32>(0.1, 0.5, 0.1);
 
-    return SDFOutput((dot(p, normal)) - height, colour);
+    return SDFOutput(abs(dot(p, normal) - size[0]) - size[1], colour);
 }

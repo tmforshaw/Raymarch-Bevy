@@ -59,11 +59,11 @@ impl Plugin for ShaderMatPlugin {
                 pos: Vec3::new(4., 1., 0.).normalize(),
                 size: Vec3::splat(0.75),
             },
-            Shape {
-                shape_type: ShapeType::Plane.into(),
-                pos: Vec3::new(0., 1., 0.).normalize(),
-                size: Vec3::splat(-10.),
-            },
+            // Shape {
+            //     shape_type: ShapeType::Plane.into(),
+            //     pos: Vec3::new(0., 1., 0.).normalize(),
+            //     size: Vec3::new(-10., 1., 0.),
+            // },
         ];
 
         let shapes_len = shapes.len() as u32;

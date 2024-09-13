@@ -2,7 +2,7 @@
 
 #import ray_marching::shapes::{Shape, shape_to_sdf, SDFOutput};
 #import ray_marching::maths::smin;
-#import ray_marching::camera::ShaderCamera;
+#import ray_marching::camera::{ShaderCamera, Camera};
 
 @group(2) @binding(1)
 var<storage> shapes: array<Shape>;
@@ -123,6 +123,13 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
 }
 
 fn get_ray_dir(camera: ShaderCamera, uv: vec2<f32>) -> vec3<f32> {
+    let screen_centre = camera.pos + camera.forward * camera.zoom;
+    let intersection_point = screen_centre + uv.x * camera.right + uv.y * camera.up;
+
+    return normalize(intersection_point - camera.pos);
+}
+
+fn get_ray_dir_with_fragment_camera(camera: Camera, uv: vec2<f32>) -> vec3<f32> {
     let screen_centre = camera.pos + camera.forward * camera.zoom;
     let intersection_point = screen_centre + uv.x * camera.right + uv.y * camera.up;
 

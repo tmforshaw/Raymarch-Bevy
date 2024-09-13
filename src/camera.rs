@@ -43,6 +43,7 @@ pub struct ShaderCameraInspector {
     pub pos: Vec3,
     #[inspector(min=0., max=CAMERA_MAX_FOV)]
     pub zoom: f32,
+    pub rotation: Quat,
 }
 
 pub fn update_camera(
@@ -94,28 +95,27 @@ pub fn move_camera(camera: &mut ShaderCamera, move_amount: Vec3) {
     camera.look_at += move_amount;
 }
 
-// pub fn move_camera_inspector(camera: &mut ShaderCameraInspector, move_amount: Vec3) {
-//     camera.pos += move_amount;
-// }
+pub fn get_look_at_from_rotation(camera: &mut ShaderCamera, rotation: Quat) -> Vec3 {
+    // let forward_dir = Vec3::Z;
+    // let forward_dir_quat =
+    //     Quat::from_vec4(Vec4::new(forward_dir.x, forward_dir.y, forward_dir.z, 0.)).normalize();
+    // let rotated_dir = (rotation.conjugate() * forward_dir_quat * rotation).normalize();
+
+    let transform = Transform::from_translation(camera.pos).with_rotation(rotation);
+
+    let rotated_dir = transform.back();
+
+    Vec3::new(rotated_dir.x, rotated_dir.y, rotated_dir.z) + camera.pos
+}
 
 pub fn rotate_camera(camera: &mut ShaderCamera, rotation: Quat) {
-    let forward_dir = Vec3::Z;
-    let forward_dir_quat =
-        Quat::from_vec4(Vec4::new(forward_dir.x, forward_dir.y, forward_dir.z, 0.));
-    let rotated_dir = rotation.inverse() * forward_dir_quat * rotation;
+    let transform = Transform::from_translation(camera.pos).with_rotation(rotation);
 
-    camera.look_at = Vec3::new(rotated_dir.x, rotated_dir.y, rotated_dir.z) + camera.pos;
-
-    // let rot = Vec4::from(rotation);
-
-    // let rotated = forward_dir
-    //     + 2. * rot
-    //         .xyz()
-    //         .cross(rot.xyz().cross(forward_dir) + rot.w * forward_dir);
-
-    // camera.look_at = Vec3::new(rotated.x, rotated.y, rotated.z) * camera.zoom + camera.pos;
-
-    let (forward, right, up) = get_camera_axes(camera.pos, camera.look_at);
+    let (forward, right, up) = (
+        transform.back().into(),
+        transform.right().into(),
+        transform.up().into(),
+    );
 
     camera.forward = forward;
     camera.right = right;
@@ -125,11 +125,19 @@ pub fn rotate_camera(camera: &mut ShaderCamera, rotation: Quat) {
 }
 
 pub fn get_camera_axes(pos: Vec3, look_at: Vec3) -> (Vec3, Vec3, Vec3) {
-    let forward = (look_at - pos).normalize();
-    let right = Vec3::Y.cross(forward); // Cross between world up-vector and forward
-    let up = forward.cross(right);
+    // let forward = (look_at - pos).normalize();
+    // let right = Vec3::Y.cross(forward); // Cross between world up-vector and forward
+    // let up = forward.cross(right);
 
-    (forward, right, up)
+    // (forward, right, up)
+
+    let transform = Transform::from_translation(pos);
+
+    (
+        transform.back().into(),
+        transform.right().into(),
+        transform.up().into(),
+    )
 }
 
 pub struct ShaderCameraControllerPlugin;
@@ -162,8 +170,18 @@ fn camera_setup(mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>) {
 
 impl ShaderCamera {
     pub fn modify(&mut self, inspector_cam: ShaderCameraInspector) {
+        let look_at = get_look_at_from_rotation(self, inspector_cam.rotation);
+
+        let (forward, right, up) = get_camera_axes(self.pos, look_at);
+
         self.pos = inspector_cam.pos;
+        self.look_at = look_at;
         self.zoom = inspector_cam.zoom * CAMERA_MAX_ZOOM_LEVEL / CAMERA_MAX_FOV;
+        self.rotation = inspector_cam.rotation.into();
+
+        self.forward = forward;
+        self.right = right;
+        self.up = up;
     }
 }
 
@@ -172,6 +190,7 @@ impl From<ShaderCamera> for ShaderCameraInspector {
         Self {
             pos: shader_camera.pos,
             zoom: shader_camera.zoom, //  * CAMERA_MAX_FOV / CAMERA_MAX_ZOOM_LEVEL
+            rotation: Quat::from_vec4(shader_camera.rotation),
         }
     }
 }

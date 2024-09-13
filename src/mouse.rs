@@ -17,7 +17,6 @@ use crate::{
 
 pub const MOUSE_SENSITIVITY: f32 = 0.00012;
 
-// TODO weird bug when looking around, sometimes the screen goes black
 pub fn update_mouse(
     window: Query<&Window, Changed<Window>>,
     mut motion_reader: ResMut<MouseMotionReader>,
@@ -41,15 +40,13 @@ pub fn update_mouse(
 
             // Using smallest of height or width ensures equal vertical and horizontal sensitivity
             let window_scale = window.height().min(window.width());
-            // let window_scale = 1.;
-            pitch -=
+            pitch +=
                 (controller_settings.mouse_sensitivity * event.delta.y * window_scale).to_radians();
-            yaw -=
+            yaw +=
                 (controller_settings.mouse_sensitivity * event.delta.x * window_scale).to_radians();
 
             // Clamp pitch to prevent gimbal lock
-            pitch = pitch.clamp(-PI / 2.05, PI / 2.05);
-            // pitch = pitch.clamp(-1.57, 1.57);
+            pitch = pitch.clamp(-PI / 2.01, PI / 2.01);
 
             // The order matters, otherwise unintended roll will occur
             let rotation = (Quat::from_axis_angle(Vec3::Y, yaw)
@@ -95,7 +92,7 @@ pub fn handle_mouse_button_events(
     for button_event in mouse_button_events.read() {
         match button_event.state {
             ButtonState::Pressed => {
-                if button_event.button == MouseButton::Left {
+                if button_event.button == MouseButton::Right {
                     mouse_grab_event_writer.send(MouseGrabEvent { is_grab: true });
                 }
             }

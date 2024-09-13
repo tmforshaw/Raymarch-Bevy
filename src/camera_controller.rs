@@ -20,7 +20,8 @@ pub const CAMERA_MAX_FOV: f32 = 100.;
 pub const CAMERA_MAX_ZOOM_LEVEL: f32 = 4.;
 pub const CAMERA_DEFAULT_ZOOM: f32 = 25.;
 
-pub const CAMERA_MOVEMENT_SPEED: f32 = 10.;
+pub const CAMERA_MOVEMENT_SPEED: f32 = 15.;
+pub const CAMERA_SPRINTING_SPEED: f32 = CAMERA_MOVEMENT_SPEED * 2.;
 pub const MOUSE_SENSITIVITY: f32 = 0.00012;
 
 pub fn camera_move_using_keyboard(
@@ -29,13 +30,25 @@ pub fn camera_move_using_keyboard(
     keys: Res<ButtonInput<KeyCode>>,
     mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>,
     time: Res<Time>,
-    controller_settings: Res<ShaderCameraControllerSettings>,
+    mut controller_settings: ResMut<ShaderCameraControllerSettings>,
 ) {
     for (_handle, mat) in shader_mats.iter_mut() {
-        let (forward, right, up) = (mat.camera.forward, mat.camera.right, mat.camera.up);
+        // Calculate the directions of motion, this allows for movement independent of where the camera is looking
+        let forward = Vec3::new(mat.camera.forward.x, 0., mat.camera.forward.z);
+        let right = Vec3::new(mat.camera.forward.z, 0., -mat.camera.forward.x);
+        let up = Vec3::Y;
 
         let mut velocity = Vec3::ZERO;
 
+        // Test just pressed keys
+        for key in keys.get_just_pressed() {
+            // Begin sprinting
+            if key == &KeyCode::ShiftLeft {
+                controller_settings.is_sprinting = true;
+            }
+        }
+
+        // Test pressed keys
         for key in keys.get_pressed() {
             match key {
                 // Movement (Modify the velocity in the given camera direction)
@@ -53,18 +66,32 @@ pub fn camera_move_using_keyboard(
                 }
                 _ => {}
             }
-
-            // Normalise the velocity and get the displacement, given the time since the last frame
-            let displacement =
-                velocity.normalize_or_zero() * time.delta_seconds() * controller_settings.speed;
-
-            // Update the camera position
-            mat.camera.pos += displacement;
-
-            // TODO fix this so the inspector can see these values
-            // Pointless because this alters the ShaderMat camera as well
-            // move_camera_inspector(&mut inspector_mat.camera, displacement);
         }
+
+        // Test just released keys
+        for key in keys.get_just_released() {
+            // Stop sprinting
+            if key == &KeyCode::ShiftLeft {
+                controller_settings.is_sprinting = false;
+            }
+        }
+
+        // Get the speed depending on if the camera is in sprinting mode
+        let speed = if controller_settings.is_sprinting {
+            controller_settings.sprinting_speed
+        } else {
+            controller_settings.speed
+        };
+
+        // Normalise the velocity and get the displacement, given the time since the last frame
+        let displacement = velocity.normalize_or_zero() * time.delta_seconds() * speed;
+
+        // Update the camera position
+        mat.camera.pos += displacement;
+
+        // TODO fix this so the inspector can see these values
+        // Pointless because this alters the ShaderMat camera as well
+        // move_camera_inspector(&mut inspector_mat.camera, displacement);
     }
 }
 
@@ -143,23 +170,20 @@ pub struct ShaderCameraControllerPlugin;
 
 impl Plugin for ShaderCameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ShaderCameraControllerSettings {
-            speed: CAMERA_MOVEMENT_SPEED,
-            sensitivity: MOUSE_SENSITIVITY,
-        })
-        .init_resource::<MouseMotionReader>()
-        .add_plugins(ResourceInspectorPlugin::<ShaderCameraControllerSettings>::default())
-        .add_systems(Startup, camera_setup)
-        .add_systems(
-            Update,
-            (
-                camera_rotate_using_mouse,
-                camera_move_using_keyboard,
-                handle_mouse_grab_events,
-                handle_mouse_button_events,
-            ),
-        )
-        .add_event::<MouseGrabEvent>();
+        app.insert_resource(ShaderCameraControllerSettings::default())
+            .init_resource::<MouseMotionReader>()
+            .add_plugins(ResourceInspectorPlugin::<ShaderCameraControllerSettings>::default())
+            .add_systems(Startup, camera_setup)
+            .add_systems(
+                Update,
+                (
+                    camera_rotate_using_mouse,
+                    camera_move_using_keyboard,
+                    handle_mouse_grab_events,
+                    handle_mouse_button_events,
+                ),
+            )
+            .add_event::<MouseGrabEvent>();
     }
 }
 
@@ -201,7 +225,20 @@ pub fn handle_mouse_button_events(
 #[derive(Resource, Reflect)]
 pub struct ShaderCameraControllerSettings {
     pub speed: f32,
+    pub sprinting_speed: f32,
     pub sensitivity: f32,
+    pub is_sprinting: bool,
+}
+
+impl Default for ShaderCameraControllerSettings {
+    fn default() -> Self {
+        Self {
+            speed: CAMERA_MOVEMENT_SPEED,
+            sprinting_speed: CAMERA_SPRINTING_SPEED,
+            sensitivity: MOUSE_SENSITIVITY,
+            is_sprinting: false,
+        }
+    }
 }
 
 #[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType, Default)]

@@ -4,11 +4,9 @@ use bevy_screen_diagnostics::{
 };
 use shader_material::ShaderMatPlugin;
 
-// pub mod camera;
 pub mod camera_controller;
 pub mod fullscreen_shader;
 pub mod light;
-// pub mod mouse;
 pub mod shader_loader;
 pub mod shader_material;
 pub mod shape;
@@ -21,7 +19,6 @@ pub fn main() {
             ScreenFrameDiagnosticsPlugin,
             ScreenEntityDiagnosticsPlugin,
         ))
-        // .add_plugins(WorldInspectorPlugin::new())
         .run();
 }
 

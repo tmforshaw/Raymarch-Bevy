@@ -5,7 +5,6 @@ use bevy::{
     window::{PresentMode, WindowResized, WindowResolution},
 };
 use core::hash::Hash;
-use std::f32::consts::PI;
 
 pub struct FullscreenShaderPlugin<S: Material2d> {
     pub shader: S,
@@ -69,16 +68,6 @@ impl<S: Material2d> FullscreenShader<S> {
             },
             FullscreenCover,
         ));
-
-        commands.spawn(DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                color: Color::hsl(200., 100., 200.),
-                illuminance: light_consts::lux::OVERCAST_DAY,
-                ..default()
-            },
-            transform: Transform::from_rotation(Quat::from_rotation_x(-PI / 4.)),
-            ..default()
-        });
 
         // Spawn a camera
         commands.spawn(Camera2dBundle::default());

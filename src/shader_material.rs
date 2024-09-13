@@ -23,10 +23,10 @@ pub struct ShaderMatPlugin;
 
 impl Plugin for ShaderMatPlugin {
     fn build(&self, app: &mut App) {
+        // Initial camera varaibles
         let camera_pos = Vec3::new(0., 0., -5.);
         let camera_rotation = Quat::IDENTITY;
-        let look_at = Vec3::ZERO;
-        let (forward, right, up) = get_camera_axes(camera_pos, look_at);
+        let (forward, right, up) = get_camera_axes(camera_pos, camera_rotation);
 
         let shapes = vec![
             Shape {
@@ -80,7 +80,6 @@ impl Plugin for ShaderMatPlugin {
             camera: ShaderCamera {
                 pos: camera_pos,
                 zoom: CAMERA_DEFAULT_ZOOM,
-                look_at,
                 rotation: camera_rotation.into(),
                 forward,
                 right,
@@ -137,6 +136,7 @@ pub struct ShaderTime {
     pub time: f32,
 }
 
+// Where the fragment shader is in stored in the assets folder
 impl Material2d for ShaderMat {
     fn fragment_shader() -> ShaderRef {
         "shaders/fullscreen_shader.wgsl".into()
@@ -187,10 +187,12 @@ impl From<ShaderMat> for ShaderMatInspector {
     }
 }
 
+// // Convert a vector to a sized array, with empty values when the vec is not big enough for the array
 // fn vec_to_sized_array<T: Default + Copy, const N: usize>(vec: Vec<T>) -> [T; N] {
 //     vec.try_into().unwrap_or_else(|vec: Vec<T>| {
 //         vec.into_iter()
 //             .enumerate()
+//             .take(N)
 //             .fold([T::default(); N], |mut acc, (i, elem)| {
 //                 acc[i] = elem;
 

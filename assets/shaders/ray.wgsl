@@ -2,16 +2,16 @@
 
 #import ray_marching::shapes::{Shape, shape_to_sdf, SDFOutput};
 #import ray_marching::maths::smin;
-#import ray_marching::camera::{ShaderCamera, Camera};
+#import ray_marching::camera::{ShaderCamera}; //, Camera
 
 @group(2) @binding(1)
 var<storage> shapes: array<Shape>;
-// var<storage> shapes: array<Shape, 32>;
 
 @group(2) @binding(2)
 var<uniform> shapes_len: u32;
 
 const max_dist: f32 = 80.;
+const max_steps = 50;
 const epsilon: f32 = 0.01;
 
 struct Ray {
@@ -33,10 +33,11 @@ struct RayMarchOutput {
 
 fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDistanceInput) -> RayMarchOutput {
     var ray = Ray(ray_origin, ray_dir);
-    var ray_dist = 0.;
 
+    // Keep track of the minimum distance that the ray reached
     var min_dist = max_dist;
 
+    var ray_dist = 0.;
     var march_steps = 0;
     while(ray_dist < max_dist) {
         march_steps++;
@@ -45,8 +46,12 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
         let dist = dist_and_colour.x;
         let object_col = dist_and_colour.yzw;
 
+        // Exit the loop if we have traversed too far, or for too many iterations
         if dist < min_dist {
             min_dist = dist;
+        }
+        if march_steps > max_steps {
+            break;
         }
 
         // Have intersected something
@@ -54,10 +59,12 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
             return RayMarchOutput(object_col, ray_dist, min_dist);
         }
 
+        // Move the ray
         ray.origin += ray.dir * dist;
         ray_dist += dist;
     }
 
+    // Draws an outline of shapes where the ray missed by only a small amount
     if min_dist < 0.1 {
         return RayMarchOutput(vec3<f32>(0.1, 1., 0.7), ray_dist, min_dist);
     }
@@ -82,7 +89,8 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
     for (var i = 0u; i < shapes_len; i++) {
         var shape_modified = shapes[i];
 
-        if shape_modified.shape_type != 3 {
+        if shape_modified.shape_type != 3 { // Isn't a plane
+            // Give different motion depending on index in shapes array
             if i == 0 {
                 shape_modified.pos.y += 2. * sin(get_dist_input.time);
             } else if i == 1{
@@ -93,20 +101,21 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
             }
         }
 
+        // Get the distance to this shape, and its colour
         let sdf_out = shape_to_sdf(p, shape_modified, get_dist_input.union_type);
 
+        // If we are finding the minimum of all the shapes, then find closest, otherwise, find furthest
         if get_dist_input.union_type == 0 {
             if sdf_out.dist < closest_or_furthest {
                 closest_or_furthest = sdf_out.dist;
                 colour = sdf_out.colour;
             }
-        } else {
-            if sdf_out.dist > closest_or_furthest {
-                closest_or_furthest = sdf_out.dist;
-                colour = sdf_out.colour;
-            }
+        } else if sdf_out.dist > closest_or_furthest {
+            closest_or_furthest = sdf_out.dist;
+            colour = sdf_out.colour;
         }
 
+        // Min or Max the distances, unless this is the first shape
         if i == 0 {
             dist = sdf_out.dist;
         } else {
@@ -131,9 +140,9 @@ fn get_ray_dir(camera: ShaderCamera, uv: vec2<f32>) -> vec3<f32> {
     return normalize(intersection_point - camera.pos);
 }
 
-fn get_ray_dir_with_fragment_camera(camera: Camera, uv: vec2<f32>) -> vec3<f32> {
-    let screen_centre = camera.pos + camera.forward * camera.zoom;
-    let intersection_point = screen_centre + uv.x * camera.right + uv.y * camera.up;
+// fn get_ray_dir_with_fragment_camera(camera: Camera, uv: vec2<f32>) -> vec3<f32> {
+//     let screen_centre = camera.pos + camera.forward * camera.zoom;
+//     let intersection_point = screen_centre + uv.x * camera.right + uv.y * camera.up;
 
-    return normalize(intersection_point - camera.pos);
-}
+//     return normalize(intersection_point - camera.pos);
+// }

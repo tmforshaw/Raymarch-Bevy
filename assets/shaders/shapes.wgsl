@@ -21,6 +21,7 @@ fn shape_to_sdf(p: vec3<f32>, shape: Shape, union_type: u32) -> SDFOutput {
         infinity = -9999.;
     }
     
+    // Depending on the shape type, return its SDF
     switch shape.shape_type {
         case(1u){
             return sdf_sphere(p, shape.pos, shape.size.x);

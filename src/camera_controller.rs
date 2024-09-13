@@ -23,7 +23,7 @@ pub const CAMERA_DEFAULT_ZOOM: f32 = 25.;
 pub const CAMERA_MOVEMENT_SPEED: f32 = 10.;
 pub const MOUSE_SENSITIVITY: f32 = 0.00012;
 
-pub fn update_camera(
+pub fn camera_move_using_keyboard(
     mut shader_mats: ResMut<Assets<ShaderMat>>,
     // mut inspector_mat: ResMut<ShaderMatInspector>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -38,7 +38,7 @@ pub fn update_camera(
 
         for key in keys.get_pressed() {
             match key {
-                // Movement
+                // Movement (Modify the velocity in the given camera direction)
                 KeyCode::KeyW => velocity += forward,
                 KeyCode::KeyS => velocity -= forward,
                 KeyCode::KeyD => velocity += right,
@@ -54,10 +54,12 @@ pub fn update_camera(
                 _ => {}
             }
 
+            // Normalise the velocity and get the displacement, given the time since the last frame
             let displacement =
                 velocity.normalize_or_zero() * time.delta_seconds() * controller_settings.speed;
 
-            move_camera(&mut mat.camera, displacement);
+            // Update the camera position
+            mat.camera.pos += displacement;
 
             // TODO fix this so the inspector can see these values
             // Pointless because this alters the ShaderMat camera as well
@@ -66,27 +68,52 @@ pub fn update_camera(
     }
 }
 
-pub fn move_camera(camera: &mut ShaderCamera, move_amount: Vec3) {
-    camera.pos += move_amount;
-    camera.look_at += move_amount;
-}
+pub fn camera_rotate_using_mouse(
+    window: Query<&Window, Changed<Window>>,
+    mut motion_reader: ResMut<MouseMotionReader>,
+    mouse_motion: Res<Events<MouseMotion>>,
+    mut shader_mats: ResMut<Assets<ShaderMat>>,
+    controller_settings: Res<ShaderCameraControllerSettings>,
+) {
+    // Exit the function if the window doesn't exist, or is not grabbing the cursor
+    if window.is_empty() {
+        return;
+    }
 
-pub fn get_look_at_from_rotation(camera: &mut ShaderCamera, rotation: Quat) -> Vec3 {
-    // let forward_dir = Vec3::Z;
-    // let forward_dir_quat =
-    //     Quat::from_vec4(Vec4::new(forward_dir.x, forward_dir.y, forward_dir.z, 0.)).normalize();
-    // let rotated_dir = (rotation.conjugate() * forward_dir_quat * rotation).normalize();
+    let window = window.single();
+    if window.cursor.grab_mode == CursorGrabMode::None {
+        return;
+    }
 
-    let transform = Transform::from_translation(camera.pos).with_rotation(rotation);
+    for event in motion_reader.motion.read(&mouse_motion) {
+        for (_handle, mat) in shader_mats.iter_mut() {
+            // Get the current rotation angles, to be updated
+            let (mut yaw, mut pitch, _) =
+                Quat::from_vec4(mat.camera.rotation).to_euler(EulerRot::YXZ);
 
-    let rotated_dir = transform.back();
+            // Using smallest of width or height ensures equal vertical and horizontal sensitivity
+            let window_scale = window.height().min(window.width());
+            pitch += (controller_settings.sensitivity * event.delta.y * window_scale).to_radians();
+            yaw += (controller_settings.sensitivity * event.delta.x * window_scale).to_radians();
 
-    Vec3::new(rotated_dir.x, rotated_dir.y, rotated_dir.z) + camera.pos
+            // Clamp pitch to prevent gimbal lock
+            pitch = pitch.clamp(-PI / 2.01, PI / 2.01);
+
+            // Creating a rotation quaternion from the new euler angles
+            let rotation = (Quat::from_axis_angle(Vec3::Y, yaw)
+                * Quat::from_axis_angle(Vec3::X, pitch))
+            .normalize();
+
+            rotate_camera(&mut mat.camera, rotation);
+        }
+    }
 }
 
 pub fn rotate_camera(camera: &mut ShaderCamera, rotation: Quat) {
+    // Create a transform to apply the rotation to, the transform starts with no rotation because the new rotation includes the previous rotation as well
     let transform = Transform::from_translation(camera.pos).with_rotation(rotation);
 
+    // Get the camera axes, specifying the backwards direction since our shader uses +Z for the forward direction
     let (forward, right, up) = (
         transform.back().into(),
         transform.right().into(),
@@ -100,15 +127,11 @@ pub fn rotate_camera(camera: &mut ShaderCamera, rotation: Quat) {
     camera.rotation = rotation.into();
 }
 
-pub fn get_camera_axes(pos: Vec3, look_at: Vec3) -> (Vec3, Vec3, Vec3) {
-    // let forward = (look_at - pos).normalize();
-    // let right = Vec3::Y.cross(forward); // Cross between world up-vector and forward
-    // let up = forward.cross(right);
+pub fn get_camera_axes(pos: Vec3, rotation: Quat) -> (Vec3, Vec3, Vec3) {
+    // Create a translation and rotation transform, and get its axes
+    let transform = Transform::from_translation(pos).with_rotation(rotation);
 
-    // (forward, right, up)
-
-    let transform = Transform::from_translation(pos);
-
+    // Specifying back instead of forward because of the shader camera using +Z for forward
     (
         transform.back().into(),
         transform.right().into(),
@@ -122,7 +145,7 @@ impl Plugin for ShaderCameraControllerPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ShaderCameraControllerSettings {
             speed: CAMERA_MOVEMENT_SPEED,
-            mouse_sensitivity: MOUSE_SENSITIVITY,
+            sensitivity: MOUSE_SENSITIVITY,
         })
         .init_resource::<MouseMotionReader>()
         .add_plugins(ResourceInspectorPlugin::<ShaderCameraControllerSettings>::default())
@@ -131,7 +154,7 @@ impl Plugin for ShaderCameraControllerPlugin {
             Update,
             (
                 camera_rotate_using_mouse,
-                update_camera,
+                camera_move_using_keyboard,
                 handle_mouse_grab_events,
                 handle_mouse_button_events,
             ),
@@ -140,49 +163,9 @@ impl Plugin for ShaderCameraControllerPlugin {
     }
 }
 
+// Initial cursor grab on Startup
 fn camera_setup(mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>) {
     mouse_grab_event_writer.send(MouseGrabEvent { is_grab: true });
-}
-
-pub fn camera_rotate_using_mouse(
-    window: Query<&Window, Changed<Window>>,
-    mut motion_reader: ResMut<MouseMotionReader>,
-    mouse_motion: Res<Events<MouseMotion>>,
-    mut shader_mats: ResMut<Assets<ShaderMat>>,
-    controller_settings: Res<ShaderCameraControllerSettings>,
-) {
-    if window.is_empty() {
-        return;
-    }
-
-    let window = window.single();
-    if window.cursor.grab_mode == CursorGrabMode::None {
-        return;
-    }
-
-    for event in motion_reader.motion.read(&mouse_motion) {
-        for (_handle, mat) in shader_mats.iter_mut() {
-            let (mut yaw, mut pitch, _) =
-                Quat::from_vec4(mat.camera.rotation).to_euler(EulerRot::YXZ);
-
-            // Using smallest of height or width ensures equal vertical and horizontal sensitivity
-            let window_scale = window.height().min(window.width());
-            pitch +=
-                (controller_settings.mouse_sensitivity * event.delta.y * window_scale).to_radians();
-            yaw +=
-                (controller_settings.mouse_sensitivity * event.delta.x * window_scale).to_radians();
-
-            // Clamp pitch to prevent gimbal lock
-            pitch = pitch.clamp(-PI / 2.01, PI / 2.01);
-
-            // The order matters, otherwise unintended roll will occur
-            let rotation = (Quat::from_axis_angle(Vec3::Y, yaw)
-                * Quat::from_axis_angle(Vec3::X, pitch))
-            .normalize();
-
-            rotate_camera(&mut mat.camera, rotation);
-        }
-    }
 }
 
 pub fn handle_mouse_grab_events(
@@ -192,6 +175,7 @@ pub fn handle_mouse_grab_events(
     for mouse_grab in mouse_grabs.read() {
         let mut primary_window = window.single_mut();
 
+        // Change the cursor grab mode, depending on the event
         if mouse_grab.is_grab {
             primary_window.cursor.grab_mode = CursorGrabMode::Confined;
             primary_window.cursor.visible = false;
@@ -207,7 +191,8 @@ pub fn handle_mouse_button_events(
     mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>,
 ) {
     for button_event in mouse_button_events.read() {
-        if button_event.button == MouseButton::Left && button_event.state == ButtonState::Pressed {
+        // Ungrab the cursor when the correct mouse button is clicked
+        if button_event.button == MouseButton::Right && button_event.state == ButtonState::Pressed {
             mouse_grab_event_writer.send(MouseGrabEvent { is_grab: true });
         }
     }
@@ -216,14 +201,13 @@ pub fn handle_mouse_button_events(
 #[derive(Resource, Reflect)]
 pub struct ShaderCameraControllerSettings {
     pub speed: f32,
-    pub mouse_sensitivity: f32,
+    pub sensitivity: f32,
 }
 
 #[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType, Default)]
 pub struct ShaderCamera {
     pub pos: Vec3,
     pub zoom: f32,
-    pub look_at: Vec3,
     pub rotation: Vec4,
     pub forward: Vec3,
     pub right: Vec3,
@@ -250,13 +234,11 @@ pub struct MouseMotionReader {
 }
 
 impl ShaderCamera {
+    // Update the ShaderCamera using the inspector camera
     pub fn modify(&mut self, inspector_cam: ShaderCameraInspector) {
-        let look_at = get_look_at_from_rotation(self, inspector_cam.rotation);
-
-        let (forward, right, up) = get_camera_axes(self.pos, look_at);
+        let (forward, right, up) = get_camera_axes(self.pos, inspector_cam.rotation);
 
         self.pos = inspector_cam.pos;
-        self.look_at = look_at;
         self.zoom = inspector_cam.zoom * CAMERA_MAX_ZOOM_LEVEL / CAMERA_MAX_FOV;
         self.rotation = inspector_cam.rotation.into();
 

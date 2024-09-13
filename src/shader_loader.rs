@@ -9,6 +9,7 @@ pub const MATHS_SHADER: Handle<Shader> = Handle::weak_from_u128(1234567890123456
 
 pub struct ShaderLoaderPlugin;
 
+// Load the shaders into Bevy, allowing them to be used as imports (Path relative to src/ folder)
 impl Plugin for ShaderLoaderPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(

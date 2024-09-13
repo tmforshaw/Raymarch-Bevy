@@ -5,7 +5,7 @@
     forward_io::VertexOutput,
 }
 
-#import ray_marching::material::{material};
+#import ray_marching::inputs::material;
 #import ray_marching::ray::{get_ray_dir, ray_march, GetDistanceInput, get_ray_dir_with_fragment_camera};
 #import ray_marching::lighting::get_light;
 #import ray_marching::maths::{centre_and_scale_uv_positions, rotate_position};

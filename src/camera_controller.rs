@@ -83,8 +83,10 @@ pub fn camera_move_using_keyboard(
             controller_settings.speed
         };
 
+        let displacement = velocity.normalize_or_zero() * time.delta_seconds() * speed;
+
         // Normalise the velocity and get the displacement, given the time since the last frame, then update the position
-        mat.camera.pos += velocity.normalize_or_zero() * time.delta_seconds() * speed;
+        mat.camera.pos += displacement;
 
         // TODO fix this so the inspector can see these values
         // Pointless because this alters the ShaderMat camera as well

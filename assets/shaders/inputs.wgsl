@@ -1,15 +1,21 @@
-#define_import_path ray_marching::camera
+#define_import_path ray_marching::inputs
 
-#import ray_marching::maths::rotate_position;
+#import ray_marching::shapes::Shape;
+#import ray_marching::lighting::ShaderLight;
+#import ray_marching::ray::ShaderCamera;
+// #import ray_marching::maths::rotate_position;
 
-struct ShaderCamera {
-    pos: vec3<f32>,
-    zoom: f32,
-    rotation: vec4<f32>,
-    forward: vec3<f32>,
-    right: vec3<f32>,
-    up: vec3<f32>,
-}
+@group(2) @binding(0)
+var<uniform> material: ShaderMat;
+
+struct ShaderMat {
+    union_type: u32,
+    smoothness_val: f32,
+    light: ShaderLight,
+    camera: ShaderCamera,
+    time: f32,
+};
+
 
 // struct Camera {
 //     pos: vec3<f32>,

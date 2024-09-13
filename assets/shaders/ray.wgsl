@@ -2,7 +2,6 @@
 
 #import ray_marching::shapes::{Shape, shape_to_sdf, SDFOutput};
 #import ray_marching::maths::smin;
-#import ray_marching::camera::{ShaderCamera}; //, Camera
 
 @group(2) @binding(1)
 var<storage> shapes: array<Shape>;
@@ -19,11 +18,21 @@ struct Ray {
     dir: vec3<f32>,
 };
 
+struct ShaderCamera {
+    pos: vec3<f32>,
+    zoom: f32,
+    rotation: vec4<f32>,
+    forward: vec3<f32>,
+    right: vec3<f32>,
+    up: vec3<f32>,
+};
+
 struct GetDistanceInput {
     union_type: u32,
     smoothness_val: f32,
     time: f32
 };
+
 
 struct RayMarchOutput {
     object_colour: vec3<f32>,

@@ -69,7 +69,6 @@ impl Plugin for ShaderMatPlugin {
         let shapes_len = shapes.len() as u32;
 
         let shader_mat = ShaderMat {
-            // shapes: vec_to_sized_array::<_, 32>(shapes),
             shapes,
             shapes_len,
             union_type: 0,
@@ -116,13 +115,9 @@ fn update_shadermat_from_egui(
         mat.shapes = inspector_mat
             .shapes
             .clone()
-            .iter()
-            .map(|&shape| shape.into())
-            .take(32)
-            .collect::<Vec<_>>()
-            .as_slice()
-            .try_into()
-            .unwrap_or_default();
+            .into_iter()
+            .map(|shape| shape.into())
+            .collect::<Vec<_>>();
         mat.union_type = inspector_mat.union_type.into();
         mat.smoothness_val = inspector_mat.smoothness_val;
         mat.light = inspector_mat.light.into();
@@ -152,7 +147,6 @@ impl Material2d for ShaderMat {
 pub struct ShaderMat {
     #[storage(1, read_only)]
     pub shapes: Vec<Shape>,
-    // pub shapes: [Shape; 32],
     #[uniform(0)]
     pub union_type: u32,
     #[uniform(0)]
@@ -185,11 +179,6 @@ impl From<ShaderMat> for ShaderMatInspector {
                 .into_iter()
                 .map(|shape| shape.into())
                 .collect::<Vec<_>>(),
-            // shapes: shader_mat
-            //     .shapes
-            //     .into_iter()
-            //     .map(|shape| shape.into())
-            //     .collect::<Vec<_>>(),
             union_type: shader_mat.union_type.into(),
             smoothness_val: shader_mat.smoothness_val,
             light: shader_mat.light.into(),
@@ -198,14 +187,14 @@ impl From<ShaderMat> for ShaderMatInspector {
     }
 }
 
-fn vec_to_sized_array<T: Default + Copy, const N: usize>(vec: Vec<T>) -> [T; N] {
-    vec.try_into().unwrap_or_else(|vec: Vec<T>| {
-        vec.into_iter()
-            .enumerate()
-            .fold([T::default(); N], |mut acc, (i, elem)| {
-                acc[i] = elem;
+// fn vec_to_sized_array<T: Default + Copy, const N: usize>(vec: Vec<T>) -> [T; N] {
+//     vec.try_into().unwrap_or_else(|vec: Vec<T>| {
+//         vec.into_iter()
+//             .enumerate()
+//             .fold([T::default(); N], |mut acc, (i, elem)| {
+//                 acc[i] = elem;
 
-                acc
-            })
-    })
-}
+//                 acc
+//             })
+//     })
+// }

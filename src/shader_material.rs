@@ -8,7 +8,7 @@ use bevy_inspector_egui::{
 };
 
 use crate::{
-    camera::{
+    camera_controller::{
         get_camera_axes, ShaderCamera, ShaderCameraControllerPlugin, ShaderCameraInspector,
         CAMERA_DEFAULT_ZOOM,
     },

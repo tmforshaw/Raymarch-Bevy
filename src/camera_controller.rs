@@ -1,50 +1,27 @@
 use bevy::{
+    ecs::event::ManualEventReader,
+    input::{
+        mouse::{MouseButtonInput, MouseMotion},
+        ButtonState,
+    },
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderType},
+    window::{CursorGrabMode, PrimaryWindow},
 };
 use bevy_inspector_egui::{
     prelude::ReflectInspectorOptions, quick::ResourceInspectorPlugin, InspectorOptions,
 };
 
-use crate::{
-    mouse::{
-        handle_mouse_button_events, handle_mouse_grab_events, update_mouse, MouseGrabEvent,
-        MouseMotionReader, MOUSE_SENSITIVITY,
-    },
-    shader_material::ShaderMat,
-};
+use std::f32::consts::PI;
+
+use crate::shader_material::ShaderMat;
 
 pub const CAMERA_MAX_FOV: f32 = 100.;
 pub const CAMERA_MAX_ZOOM_LEVEL: f32 = 4.;
 pub const CAMERA_DEFAULT_ZOOM: f32 = 25.;
 
 pub const CAMERA_MOVEMENT_SPEED: f32 = 10.;
-
-#[derive(Resource, Reflect)]
-pub struct ShaderCameraControllerSettings {
-    pub speed: f32,
-    pub mouse_sensitivity: f32,
-}
-
-#[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType, Default)]
-pub struct ShaderCamera {
-    pub pos: Vec3,
-    pub zoom: f32,
-    pub look_at: Vec3,
-    pub rotation: Vec4,
-    pub forward: Vec3,
-    pub right: Vec3,
-    pub up: Vec3,
-}
-
-#[derive(Debug, Copy, Clone, Asset, Reflect, Resource, InspectorOptions, Component, Default)]
-#[reflect(InspectorOptions)]
-pub struct ShaderCameraInspector {
-    pub pos: Vec3,
-    #[inspector(min=0., max=CAMERA_MAX_FOV)]
-    pub zoom: f32,
-    pub rotation: Quat,
-}
+pub const MOUSE_SENSITIVITY: f32 = 0.00012;
 
 pub fn update_camera(
     // mut key_events: EventReader<KeyboardInput>,
@@ -154,7 +131,7 @@ impl Plugin for ShaderCameraControllerPlugin {
         .add_systems(
             Update,
             (
-                update_mouse,
+                camera_rotate_using_mouse,
                 update_camera,
                 handle_mouse_grab_events,
                 handle_mouse_button_events,
@@ -166,6 +143,116 @@ impl Plugin for ShaderCameraControllerPlugin {
 
 fn camera_setup(mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>) {
     mouse_grab_event_writer.send(MouseGrabEvent { is_grab: true });
+}
+
+pub fn camera_rotate_using_mouse(
+    window: Query<&Window, Changed<Window>>,
+    mut motion_reader: ResMut<MouseMotionReader>,
+    mouse_motion: Res<Events<MouseMotion>>,
+    mut shader_mats: ResMut<Assets<ShaderMat>>,
+    controller_settings: Res<ShaderCameraControllerSettings>,
+) {
+    if window.is_empty() {
+        return;
+    }
+
+    let window = window.single();
+    if window.cursor.grab_mode == CursorGrabMode::None {
+        return;
+    }
+
+    for event in motion_reader.motion.read(&mouse_motion) {
+        for (_handle, mat) in shader_mats.iter_mut() {
+            let (mut yaw, mut pitch, _) =
+                Quat::from_vec4(mat.camera.rotation).to_euler(EulerRot::YXZ);
+
+            // Using smallest of height or width ensures equal vertical and horizontal sensitivity
+            let window_scale = window.height().min(window.width());
+            pitch +=
+                (controller_settings.mouse_sensitivity * event.delta.y * window_scale).to_radians();
+            yaw +=
+                (controller_settings.mouse_sensitivity * event.delta.x * window_scale).to_radians();
+
+            // Clamp pitch to prevent gimbal lock
+            pitch = pitch.clamp(-PI / 2.01, PI / 2.01);
+
+            // The order matters, otherwise unintended roll will occur
+            let rotation = (Quat::from_axis_angle(Vec3::Y, yaw)
+                * Quat::from_axis_angle(Vec3::X, pitch))
+            .normalize();
+
+            rotate_camera(&mut mat.camera, rotation);
+        }
+    }
+}
+
+pub fn handle_mouse_grab_events(
+    mut mouse_grabs: EventReader<MouseGrabEvent>,
+    mut window: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    for mouse_grab in mouse_grabs.read() {
+        let mut primary_window = window.single_mut();
+
+        if mouse_grab.is_grab {
+            primary_window.cursor.grab_mode = CursorGrabMode::Confined;
+            primary_window.cursor.visible = false;
+        } else {
+            primary_window.cursor.grab_mode = CursorGrabMode::None;
+            primary_window.cursor.visible = true;
+        }
+    }
+}
+
+pub fn handle_mouse_button_events(
+    mut mouse_button_events: EventReader<MouseButtonInput>,
+    mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>,
+) {
+    for button_event in mouse_button_events.read() {
+        match button_event.state {
+            ButtonState::Pressed => {
+                if button_event.button == MouseButton::Right {
+                    mouse_grab_event_writer.send(MouseGrabEvent { is_grab: true });
+                }
+            }
+            ButtonState::Released => {}
+        }
+    }
+}
+
+#[derive(Resource, Reflect)]
+pub struct ShaderCameraControllerSettings {
+    pub speed: f32,
+    pub mouse_sensitivity: f32,
+}
+
+#[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType, Default)]
+pub struct ShaderCamera {
+    pub pos: Vec3,
+    pub zoom: f32,
+    pub look_at: Vec3,
+    pub rotation: Vec4,
+    pub forward: Vec3,
+    pub right: Vec3,
+    pub up: Vec3,
+}
+
+#[derive(Debug, Copy, Clone, Asset, Reflect, Resource, InspectorOptions, Component, Default)]
+#[reflect(InspectorOptions)]
+pub struct ShaderCameraInspector {
+    pub pos: Vec3,
+    #[inspector(min=0., max=CAMERA_MAX_FOV)]
+    pub zoom: f32,
+    pub rotation: Quat,
+}
+
+#[derive(Event)]
+pub struct MouseGrabEvent {
+    pub is_grab: bool,
+}
+
+#[derive(Resource, Default)]
+pub struct MouseMotionReader {
+    motion: ManualEventReader<MouseMotion>,
 }
 
 impl ShaderCamera {

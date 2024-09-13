@@ -6,6 +6,8 @@
 
 @group(2) @binding(1)
 var<storage> shapes: array<Shape>;
+// var<storage> shapes: array<Shape, 32>;
+
 @group(2) @binding(2)
 var<uniform> shapes_len: u32;
 

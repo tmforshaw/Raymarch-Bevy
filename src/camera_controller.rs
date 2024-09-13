@@ -24,7 +24,6 @@ pub const CAMERA_MOVEMENT_SPEED: f32 = 10.;
 pub const MOUSE_SENSITIVITY: f32 = 0.00012;
 
 pub fn update_camera(
-    // mut key_events: EventReader<KeyboardInput>,
     mut shader_mats: ResMut<Assets<ShaderMat>>,
     // mut inspector_mat: ResMut<ShaderMatInspector>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -208,13 +207,8 @@ pub fn handle_mouse_button_events(
     mut mouse_grab_event_writer: EventWriter<MouseGrabEvent>,
 ) {
     for button_event in mouse_button_events.read() {
-        match button_event.state {
-            ButtonState::Pressed => {
-                if button_event.button == MouseButton::Right {
-                    mouse_grab_event_writer.send(MouseGrabEvent { is_grab: true });
-                }
-            }
-            ButtonState::Released => {}
+        if button_event.button == MouseButton::Left && button_event.state == ButtonState::Pressed {
+            mouse_grab_event_writer.send(MouseGrabEvent { is_grab: true });
         }
     }
 }

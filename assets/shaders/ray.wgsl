@@ -9,7 +9,7 @@ var<storage> shapes: array<Shape>;
 @group(2) @binding(2)
 var<uniform> shapes_len: u32;
 
-const max_dist: f32 = 80.;
+const max_dist: f32 = 400.;
 const max_steps = 50;
 const epsilon: f32 = 0.01;
 
@@ -78,8 +78,13 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
         return RayMarchOutput(vec3<f32>(0.1, 1., 0.7), ray_dist, min_dist);
     }
 
+    let sky_col = vec3<f32>(0.1, 0.2, 0.7);
+    let bottom_sky_col = vec3<f32>(0.3, 0.2, 0.5);
+
+    let background = mix(bottom_sky_col, sky_col,  (ray_dir.y + 1.) * 1.5);
+ 
     // let background = vec3<f32>(0.0, 0.0, 0.);
-    let background = (ray_dir + 1.) / 2.;
+    // let background = (ray_dir + 1.) / 2.;
 
     return RayMarchOutput(background, ray_dist, min_dist);
 }

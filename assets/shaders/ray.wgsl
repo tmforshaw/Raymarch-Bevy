@@ -107,7 +107,7 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
             // Give different motion depending on index in shapes array
             if i == 0 {
                 shape_modified.pos.y += 2. * sin(get_dist_input.time);
-            } else if i == 1{
+            } else if i == 1 {
                 shape_modified.pos.x += 2. * cos(get_dist_input.time * 2.);
             } else {
                 shape_modified.pos.x += f32(i) * 3.5 * sin(get_dist_input.time * 1.5 / f32(i) + f32(i) * 0.5); 

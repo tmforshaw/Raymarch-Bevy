@@ -14,6 +14,7 @@ use crate::{
     },
     fullscreen_shader::FullscreenShaderPlugin,
     light::{ShaderLight, ShaderLightInspector},
+    octree::{NodeDataType, Octree},
     shader_loader::ShaderLoaderPlugin,
     shape::{Shape, ShapeInspector, ShapeType},
     UnionType,
@@ -68,6 +69,24 @@ impl Plugin for ShaderMatPlugin {
 
         let shapes_len = shapes.len() as u32;
 
+        let mut oct = Octree::new();
+        oct.insert(
+            IVec3::new(0, 0, 0),
+            NodeDataType::new(Color::linear_rgb(1., 0., 0.)),
+        );
+
+        let serial = oct.depth_first();
+        let serial_buffer = Octree::serialised_to_buffer(serial.clone());
+
+        println!("{:?}", oct.get_root());
+        println!("{:0>32X?}", serial);
+        println!("{:0>8X?}", serial_buffer.clone());
+
+        println!("{:?}", serial_buffer.len() / 4);
+
+        let deserialised = Octree::deserialise(serial);
+        println!("{:X?}", deserialised.serialise());
+
         let shader_mat = ShaderMat {
             shapes,
             shapes_len,
@@ -85,6 +104,8 @@ impl Plugin for ShaderMatPlugin {
                 right,
                 up,
             },
+            serial_octree: serial_buffer.clone(),
+            serial_len: serial_buffer.len() as u32,
             ..default()
         };
 
@@ -147,6 +168,8 @@ impl Material2d for ShaderMat {
 pub struct ShaderMat {
     #[storage(1, read_only)]
     pub shapes: Vec<Shape>,
+    #[storage(3, read_only)]
+    pub serial_octree: Vec<u32>,
     #[uniform(0)]
     pub union_type: u32,
     #[uniform(0)]
@@ -159,6 +182,8 @@ pub struct ShaderMat {
     pub time: f32,
     #[uniform(2)]
     pub shapes_len: u32,
+    #[uniform(4)]
+    pub serial_len: u32,
 }
 
 #[derive(Debug, Clone, Asset, Reflect, Resource, InspectorOptions, Component, Default)]

@@ -146,6 +146,8 @@ struct NodeInfo {
     parent: u64,
     #[tabled(format("{:?}", self.data))]
     data: Option<NodeDataType>,
+    #[tabled(format("{:X?}", self.data_serialised))]
+    data_serialised: Option<u32>,
 }
 
 // Octree -----------------------------------------------------------------------------------------
@@ -176,6 +178,12 @@ impl Octree {
             root,
             ..Default::default()
         }
+    }
+
+    // Getters
+
+    pub fn get_root(&self) -> Rc<RefCell<Node>> {
+        self.root.clone()
     }
 
     // Boundary Tests
@@ -324,6 +332,7 @@ impl Octree {
                 index: index as u64,
                 parent: index as u64 >> EXPONENT_MAX_CHILDREN,
                 data: current_node.borrow().data,
+                data_serialised: current_node.borrow().data.map(|data| data.serialise()),
             });
 
             let current_children = current_node.borrow().children.clone();
@@ -341,8 +350,8 @@ impl Octree {
             stack.append(&mut indexed_children);
         }
 
-        // // Print the table
-        // println!("{}", Table::new(node_infos));
+        // Print the table
+        println!("{}", Table::new(node_infos));
 
         // Generate a map between indices and pointers
         let node_map = serialisable
@@ -350,6 +359,14 @@ impl Octree {
             .into_iter()
             .enumerate()
             .collect::<Vec<_>>();
+
+        // Serialise the nodes using a map between indices and pointers
+        let temp = serialisable
+            .iter()
+            .map(|node| SerialNode::from_node(node.clone(), node_map.clone()))
+            .collect::<Vec<_>>();
+
+        println!("{temp:?}");
 
         // Serialise the nodes using a map between indices and pointers
         serialisable
@@ -402,6 +419,19 @@ impl Octree {
 
         // Create an octree with the new root node
         Octree::with_root(nodes[0].clone())
+    }
+
+    pub fn serialised_to_buffer(serial: Vec<u128>) -> Vec<u32> {
+        serial.iter().fold(Vec::new(), |mut acc, chunk| {
+            acc.append(&mut vec![
+                (chunk & 0xFFFFFFFF) as u32,
+                ((chunk >> 32) & 0xFFFFFFFF) as u32,
+                ((chunk >> 64) & 0xFFFFFFFF) as u32,
+                ((chunk >> 96) & 0xFFFFFFFF) as u32,
+            ]);
+
+            acc
+        })
     }
 
     pub fn save_to_file(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {

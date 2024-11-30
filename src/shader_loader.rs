@@ -5,6 +5,7 @@ pub const SHAPE_SHADER: Handle<Shader> = Handle::weak_from_u128(1234567890123456
 pub const RAY_SHADER: Handle<Shader> = Handle::weak_from_u128(12345678901234567892);
 pub const LIGHTING_SHADER: Handle<Shader> = Handle::weak_from_u128(12345678901234567893);
 pub const MATHS_SHADER: Handle<Shader> = Handle::weak_from_u128(12345678901234567894);
+pub const SERIAL_SHADER: Handle<Shader> = Handle::weak_from_u128(12345678901234567895);
 
 pub struct ShaderLoaderPlugin;
 
@@ -39,6 +40,12 @@ impl Plugin for ShaderLoaderPlugin {
             app,
             MATHS_SHADER,
             "../assets/shaders/maths.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            SERIAL_SHADER,
+            "../assets/shaders/octree.wgsl",
             Shader::from_wgsl
         );
     }

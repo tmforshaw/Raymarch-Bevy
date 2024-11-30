@@ -12,6 +12,7 @@ bevy_flycam = "0.14.1"
 bevy_screen_diagnostics = "0.6.0"
 bevy_shader_utils = "0.7.0"
 bracket-noise = "0.8.7"
+tabled = "0.17.0"
 vecfx = "0.1.6"
 
 [profile.dev]

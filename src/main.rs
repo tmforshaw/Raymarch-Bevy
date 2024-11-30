@@ -7,6 +7,8 @@ use shader_material::ShaderMatPlugin;
 pub mod camera_controller;
 pub mod fullscreen_shader;
 pub mod light;
+pub mod octree;
+pub mod serialise;
 pub mod shader_loader;
 pub mod shader_material;
 pub mod shape;

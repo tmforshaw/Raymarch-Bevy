@@ -10,7 +10,7 @@
 #import ray_marching::lighting::get_light;
 #import ray_marching::maths::{centre_and_scale_uv_positions, rotate_position};
 
-#import ray_marching::octree::deserialise;
+#import ray_marching::octree::{deserialise, Octree, get_nth_node};
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
@@ -19,8 +19,10 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let out = deserialise();
 
+    return out;
+
     // return vec4<f32>(f32(out.x)/4096000000., 1., 1., 1.);
-    return vec4<f32>(out.xyz, 1.);
+    // return out.nodes[out.root.children[7]].data;
     // return vec4<f32>(out);
     // return vec4<f32>(1., 1., 0., 1.);
 

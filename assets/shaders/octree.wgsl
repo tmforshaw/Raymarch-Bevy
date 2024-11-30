@@ -13,6 +13,15 @@ struct Node {
     data: vec4<f32>,
 }
 
+struct Octree {
+    root: Node,
+    nodes: array<Node, MAX_NODES>,
+}
+
+fn get_nth_node(oct: Octree, index: u32) -> Node {
+    return oct.nodes[index];
+}
+
 fn deserialise() -> vec4<f32> {
     var nodes = array<Node, MAX_NODES>();
     
@@ -42,6 +51,8 @@ fn deserialise() -> vec4<f32> {
 
         nodes[i / 4] = Node(array<u32, 8>(child_0, child_1, child_2, child_3, child_4, child_5, child_6, child_7), vec4<f32>(red, green, blue, extra)); 
     }
+
+    // return Octree(nodes[0], nodes);
 
     return nodes[nodes[0].children[7]].data;
 }

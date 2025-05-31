@@ -39,14 +39,14 @@ fn get_light(p: vec3<f32>, view_dir: vec3<f32>, light_pos: vec3<f32>, get_dist_i
 }
 
 fn get_normal(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec3<f32> {
-    let distance = get_distance(p, get_dist_input).x;
+    let distance = get_distance(p, get_dist_input).dist;
     let e = vec2<f32>(0.01,0.0); // Epsilon value
 
     // Sample nearby points, taking their gradient (Grad function approximation)
     let normal = distance - vec3<f32>(
-        get_distance(p-e.xyy, get_dist_input).x,
-        get_distance(p-e.yxy, get_dist_input).x,
-        get_distance(p-e.yyx, get_dist_input).x,
+        get_distance(p-e.xyy, get_dist_input).dist,
+        get_distance(p-e.yxy, get_dist_input).dist,
+        get_distance(p-e.yyx, get_dist_input).dist,
     );
 
     return normalize(normal);

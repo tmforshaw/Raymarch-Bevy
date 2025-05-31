@@ -41,29 +41,34 @@ impl Plugin for ShaderMatPlugin {
             },
             Shape {
                 shape_type: ShapeType::Sphere.into(),
-                pos: Vec3::new(4., 1., 0.).normalize(),
+                pos: Vec3::new(4., 1., 0.),
                 size: Vec3::new(1.5, 0.0, 0.),
             },
             Shape {
                 shape_type: ShapeType::Cube.into(),
-                pos: Vec3::new(4., 1., 0.).normalize(),
+                pos: Vec3::new(4., 1., 0.),
                 size: Vec3::splat(1.25),
             },
             Shape {
                 shape_type: ShapeType::Sphere.into(),
-                pos: Vec3::new(4., 1., 0.).normalize(),
+                pos: Vec3::new(4., 1., 0.),
                 size: Vec3::new(1., 0.0, 0.),
             },
             Shape {
                 shape_type: ShapeType::Cube.into(),
-                pos: Vec3::new(4., 1., 0.).normalize(),
+                pos: Vec3::new(4., 1., 0.),
                 size: Vec3::splat(0.75),
             },
             // Shape {
             //     shape_type: ShapeType::Plane.into(),
-            //     pos: Vec3::new(0., 1., 0.).normalize(),
+            //     pos: Vec3::new(0., 1., 0.),
             //     size: Vec3::new(-10., 1., 0.),
             // },
+            Shape {
+                shape_type: ShapeType::Portal.into(),
+                pos: Vec3::new(3., 2., -5.),
+                size: Vec3::new(1.2, 2.0, 0.1),
+            },
         ];
 
         let shapes_len = shapes.len() as u32;
@@ -72,7 +77,8 @@ impl Plugin for ShaderMatPlugin {
             shapes,
             shapes_len,
             union_type: 0,
-            smoothness_val: 5.,
+            // smoothness_val: 5.,
+            smoothness_val: 0.01,
             light: ShaderLight {
                 pos: Vec3::new(0., 5., 0.),
                 colour: Vec3::new(0.8, 0.5, 0.5),

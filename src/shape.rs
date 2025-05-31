@@ -11,6 +11,7 @@ pub enum ShapeType {
     Sphere,
     Cube,
     Plane,
+    Portal,
 }
 
 #[derive(Debug, AsBindGroup, Clone, Asset, TypePath, ShaderType, Copy)]
@@ -45,6 +46,7 @@ impl From<ShapeType> for u32 {
             ShapeType::Sphere => 1,
             ShapeType::Cube => 2,
             ShapeType::Plane => 3,
+            ShapeType::Portal => 4,
         }
     }
 }
@@ -55,6 +57,7 @@ impl From<u32> for ShapeType {
             1 => Self::Sphere,
             2 => Self::Cube,
             3 => Self::Plane,
+            4 => Self::Portal,
             _ => Self::None,
         }
     }

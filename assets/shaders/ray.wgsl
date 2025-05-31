@@ -33,6 +33,11 @@ struct GetDistanceInput {
     time: f32
 };
 
+struct DistanceOutput {
+    dist: f32,
+    colour: vec3<f32>,
+    shape_type: u32,
+}
 
 struct RayMarchOutput {
     object_colour: vec3<f32>,
@@ -51,9 +56,10 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
     while(ray_dist < max_dist) {
         march_steps++;
 
-        let dist_and_colour = get_distance(ray.origin, get_dist_input);
-        let dist = dist_and_colour.x;
-        let object_col = dist_and_colour.yzw;
+        let dist_output = get_distance(ray.origin, get_dist_input);
+        var dist = dist_output.dist;
+        let object_col = dist_output.colour;
+        let shape_type = dist_output.shape_type;
 
         // Set the minimum distance reached if this distance is smaller
         if dist < min_dist {
@@ -67,6 +73,14 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
 
         // Have intersected something
         if dist <= epsilon {
+            // Intersected Portal
+            // if shape_type == 4 {
+            //     ray.dir = vec3<f32>(1., 0., 0.);
+            //     ray.origin = vec3<f32>(0., 0., 0.) + ray_dir * 0.01;
+            //     dist = 0.01;
+            //     continue;
+            // }
+        
             return RayMarchOutput(object_col, ray_dist, min_dist);
         }
 
@@ -91,66 +105,68 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
     return RayMarchOutput(background, ray_dist, min_dist);
 }
 
-fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> vec4<f32> {
-    // var dist: f32;
-    // var closest_or_furthest: f32;
+fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> DistanceOutput {
+    var dist: f32;
+    var colour = vec3<f32>(0.);
+    var shape_type: u32 = 0;
 
-    // if get_dist_input.union_type == 0 {
-    //     closest_or_furthest = 9999.;
-    // } else {
-    //     closest_or_furthest = -9999.;
-    // }
+    var closest_or_furthest: f32;
+    if get_dist_input.union_type == 0 {
+        closest_or_furthest = 9999.;
+    } else {
+        closest_or_furthest = -9999.;
+    }
     
-    // var colour = vec3<f32>(0.);
-    // for (var i = 0u; i < shapes_len; i++) {
-    //     var shape_modified = shapes[i];
+    for (var i = 0u; i < shapes_len; i++) {
+        var shape_modified = shapes[i];
 
-    //     if shape_modified.shape_type != 3 { // Isn't a plane
-    //         // Give different motion depending on index in shapes array
-    //         if i == 0 {
-    //             shape_modified.pos.y += 2. * sin(get_dist_input.time);
-    //         } else if i == 1 {
-    //             shape_modified.pos.x += 2. * cos(get_dist_input.time * 2.);
-    //         } else {
-    //             shape_modified.pos.x += f32(i) * 3.5 * sin(get_dist_input.time * 1.5 / f32(i) + f32(i) * 0.5); 
-    //             shape_modified.pos.y += f32(i) * 3.5 * cos(get_dist_input.time * 2.5 / f32(i) + f32(i) * 0.5); 
-    //         }
-    //     }
+        shape_type = shape_modified.shape_type;
 
-    //     // Get the distance to this shape, and its colour
-    //     let sdf_out = shape_to_sdf(p, shape_modified, get_dist_input.union_type, get_dist_input.time);
+        if shape_type != 3 { // Isn't a plane
+            // Give different motion depending on index in shapes array
+            // if i == 0 {
+            //     shape_modified.pos.y += 2. * sin(get_dist_input.time);
+            // } else if i == 1 {
+            //     shape_modified.pos.x += 2. * cos(get_dist_input.time * 2.);
+            // } else if i == 2 {
+            //     shape_modified.pos.x += f32(i) * 3.5 * sin(get_dist_input.time * 1.5 / f32(i) + f32(i) * 0.5); 
+            //     shape_modified.pos.y += f32(i) * 3.5 * cos(get_dist_input.time * 2.5 / f32(i) + f32(i) * 0.5); 
+            // } else {
+            //     // Portal
 
-    //     // If we are finding the minimum of all the shapes, then find closest, otherwise, find furthest
-    //     if get_dist_input.union_type == 0 {
-    //         if sdf_out.dist < closest_or_furthest {
-    //             closest_or_furthest = sdf_out.dist;
-    //             colour = sdf_out.colour;
-    //         }
-    //     } else if sdf_out.dist > closest_or_furthest {
-    //         closest_or_furthest = sdf_out.dist;
-    //         colour = sdf_out.colour;
-    //     }
+            // }
+        }
 
-    //     // Min or Max the distances, unless this is the first shape
-    //     if i == 0 {
-    //         dist = sdf_out.dist;
-    //     } else {
-    //         switch get_dist_input.union_type {
-    //             case(1u) {
-    //                 dist = max(dist, sdf_out.dist);
-    //             }
-    //             default {
-    //                 dist = smin(dist, sdf_out.dist, get_dist_input.smoothness_val);
-    //              }
-    //         }
-    //     }
-    // }
+        // Get the distance to this shape, and its colour
+        let sdf_out = shape_to_sdf(p, shape_modified, get_dist_input.union_type, get_dist_input.time);
 
-    // return vec4<f32>(dist, colour);
+        // If we are finding the minimum of all the shapes, then find closest, otherwise, find furthest
+        if get_dist_input.union_type == 0 {
+            if sdf_out.dist < closest_or_furthest {
+                closest_or_furthest = sdf_out.dist;
+                colour = sdf_out.colour;
+            }
+        } else if sdf_out.dist > closest_or_furthest {
+            closest_or_furthest = sdf_out.dist;
+            colour = sdf_out.colour;
+        }
 
-    var sdf = shape_to_sdf(p, Shape(1, vec3<f32>(0., 0., 0.), vec3<f32>(1., 0., 0.)), 0u, get_dist_input.time);
+        // Min or Max the distances, unless this is the first shape
+        if i == 0 {
+            dist = sdf_out.dist;
+        } else {
+            switch get_dist_input.union_type {
+                case(1u) {
+                    dist = max(dist, sdf_out.dist);
+                }
+                default {
+                    dist = smin(dist, sdf_out.dist, get_dist_input.smoothness_val);
+                 }
+            }
+        }
+    }
 
-    return vec4<f32>(sdf.dist, sdf.colour);
+    return DistanceOutput(dist, colour, shape_type);
 }
 
 fn get_ray_dir(camera: ShaderCamera, uv: vec2<f32>) -> vec3<f32> {

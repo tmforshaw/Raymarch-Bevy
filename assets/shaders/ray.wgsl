@@ -52,8 +52,10 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
     var min_dist = max_dist;
 
     var ray_dist = 0.;
+    var total_ray_dist = ray_dist;
     var march_steps = 0;
-    while(ray_dist < max_dist) {
+
+    while(total_ray_dist < max_dist) {
         march_steps++;
 
         let dist_output = get_distance(ray.origin, get_dist_input);
@@ -74,12 +76,18 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
         // Have intersected something
         if dist <= epsilon {
             // Intersected Portal
-            // if shape_type == 4 {
-            //     ray.dir = vec3<f32>(1., 0., 0.);
-            //     ray.origin = vec3<f32>(0., 0., 0.) + ray_dir * 0.01;
-            //     dist = 0.01;
-            //     continue;
-            // }
+            if shape_type == 4 {
+                ray.dir = vec3<f32>(0., 0., -1.);
+                ray.origin = vec3<f32>(2., 0., 2.) + ray_dir * 0.5;
+                // dist = 0.5;
+
+                // total_ray_dist += dist;
+                // ray_dist = 0.1;
+
+                min_dist = 0.15;
+                continue;
+                // return RayMarchOutput(vec3<f32>(0., 0., 1.), 1,0.001);
+            }
         
             return RayMarchOutput(object_col, ray_dist, min_dist);
         }
@@ -87,6 +95,7 @@ fn ray_march(ray_origin: vec3<f32>, ray_dir: vec3<f32>, get_dist_input: GetDista
         // Move the ray
         ray.origin += ray.dir * dist;
         ray_dist += dist;
+        total_ray_dist += dist;
     }
 
     // Draws an outline of shapes where the ray missed by only a small amount
@@ -120,21 +129,20 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> DistanceOutpu
     for (var i = 0u; i < shapes_len; i++) {
         var shape_modified = shapes[i];
 
-        shape_type = shape_modified.shape_type;
 
-        if shape_type != 3 { // Isn't a plane
+        if shape_modified.shape_type != 3 { // Isn't a plane
             // Give different motion depending on index in shapes array
-            // if i == 0 {
-            //     shape_modified.pos.y += 2. * sin(get_dist_input.time);
-            // } else if i == 1 {
-            //     shape_modified.pos.x += 2. * cos(get_dist_input.time * 2.);
-            // } else if i == 2 {
-            //     shape_modified.pos.x += f32(i) * 3.5 * sin(get_dist_input.time * 1.5 / f32(i) + f32(i) * 0.5); 
-            //     shape_modified.pos.y += f32(i) * 3.5 * cos(get_dist_input.time * 2.5 / f32(i) + f32(i) * 0.5); 
-            // } else {
-            //     // Portal
+            if i == 0 {
+                shape_modified.pos.y += 2. * sin(get_dist_input.time);
+            } else if i == 1 {
+                shape_modified.pos.x += 2. * cos(get_dist_input.time * 2.);
+            } else if i == 2 {
+                shape_modified.pos.x += f32(i) * 3.5 * sin(get_dist_input.time * 1.5 / f32(i) + f32(i) * 0.5); 
+                shape_modified.pos.y += f32(i) * 3.5 * cos(get_dist_input.time * 2.5 / f32(i) + f32(i) * 0.5); 
+            } else {
+                // Portal
 
-            // }
+            }
         }
 
         // Get the distance to this shape, and its colour
@@ -145,10 +153,12 @@ fn get_distance(p: vec3<f32>, get_dist_input: GetDistanceInput) -> DistanceOutpu
             if sdf_out.dist < closest_or_furthest {
                 closest_or_furthest = sdf_out.dist;
                 colour = sdf_out.colour;
+                shape_type = shape_modified.shape_type;
             }
         } else if sdf_out.dist > closest_or_furthest {
             closest_or_furthest = sdf_out.dist;
             colour = sdf_out.colour;
+            shape_type = shape_modified.shape_type;
         }
 
         // Min or Max the distances, unless this is the first shape

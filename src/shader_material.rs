@@ -75,6 +75,11 @@ impl Plugin for ShaderMatPlugin {
             NodeDataType::new(Color::linear_rgb(1., 0., 0.)),
         );
 
+        oct.insert(
+            IVec3::new(0, 0, 1),
+            NodeDataType::new(Color::linear_rgb(1., 0., 0.)),
+        );
+
         let serial = oct.depth_first();
         let serial_buffer = Octree::serialised_to_buffer(serial.clone());
 
